@@ -1,0 +1,15 @@
+{
+  "id": "API-003",
+  "category": "api_docs",
+  "title": "Alerts API — Create and manage alert rules via API",
+  "content": "Programmatically create, update, and delete alert rules.\n\n**Base URL:** https://api.clouddash.io/v2/alerts\n\n**Create an alert rule — POST /v2/alerts**\n```json\n{\n  \"name\": \"High CPU on production servers\",\n  \"condition\": {\n    \"metric\": \"CPUUtilization\",\n    \"operator\": \"gt\",\n    \"threshold\": 85,\n    \"for_minutes\": 5\n  },\n  \"resource_filter\": {\n    \"tags\": {\"Environment\": \"production\"}\n  },\n  \"severity\": \"high\",\n  \"notify\": [\n    {\"type\": \"slack\", \"channel_id\": \"C01234ABCDE\"},\n    {\"type\": \"pagerduty\", \"integration_key\": \"abc123\"}\n  ],\n  \"cooldown_minutes\": 30\n}\n```\n\n**Response (201 Created):** Returns the full alert rule object with its id field.\n\n**Manage rules:**\n- GET /v2/alerts — list all rules (paginated, max 100 per page)\n- GET /v2/alerts/{id} — get a specific rule\n- PATCH /v2/alerts/{id} — update fields (partial update supported)\n- DELETE /v2/alerts/{id} — delete a rule\n- POST /v2/alerts/{id}/mute — mute for a duration ({\"minutes\": 60})\n\n**Webhook notifications:**\nSet notify type to 'webhook' with a url field. CloudDash will POST a JSON payload to your endpoint when the alert fires. Payloads are signed with HMAC-SHA256 using your webhook secret — verify the X-CloudDash-Signature header.",
+  "tags": [
+    "api",
+    "alerts",
+    "POST",
+    "webhook",
+    "create alert",
+    "manage alerts"
+  ],
+  "version": "2.4"
+}

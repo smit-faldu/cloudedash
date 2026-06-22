@@ -1,0 +1,16 @@
+{
+  "id": "TS-002",
+  "category": "troubleshooting",
+  "title": "Error ERR-5001: Alert notifications not being delivered",
+  "content": "**Error Code:** ERR-5001\n**Symptom:** Alert rules are triggering (visible in Alert History) but notifications are not arriving via Slack, PagerDuty, or email.\n\n**Checklist — work through in order:**\n\n**1. Verify the notification channel is connected:**\n   - Settings → Notifications → check the channel status is 'Active'.\n   - Click 'Send Test' to trigger a test notification.\n\n**2. Slack-specific:**\n   - Confirm the CloudDash Slack App has been re-authorised after any Slack workspace      security policy changes.\n   - Verify the bot has permission to post in the target channel (not a private channel      the bot was not invited to).\n\n**3. PagerDuty-specific:**\n   - Confirm the Integration Key is still valid (PagerDuty → Services → Integrations).\n   - Check if PagerDuty has a maintenance window active that is suppressing alerts.\n\n**4. Email-specific:**\n   - Check spam/junk folders.\n   - Whitelist the sender domain: alerts@mail.clouddash.io.\n   - Enterprise customers: ensure your email gateway allows inbound SMTP from      149.72.0.0/14 (SendGrid IP range).\n\n**5. Alert rule misconfiguration:**\n   - Re-check the alert rule's 'Notify' section. Ensure the correct channel is selected      and 'Mute' is not enabled.\n   - Check for a 'Cooldown Period' setting that may be suppressing repeat notifications.",
+  "tags": [
+    "ERR-5001",
+    "alerts",
+    "notifications",
+    "slack",
+    "pagerduty",
+    "email",
+    "troubleshooting"
+  ],
+  "version": "2.4"
+}

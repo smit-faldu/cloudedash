@@ -1,0 +1,13 @@
+{
+  "id": "FAQ-001",
+  "category": "faq",
+  "title": "What is CloudDash and what does it monitor?",
+  "content": "CloudDash is a B2B SaaS platform that provides real-time monitoring, intelligent alerting, and cost-optimization tools for cloud infrastructure. It supports AWS, Google Cloud Platform (GCP), and Microsoft Azure. CloudDash continuously collects metrics from your cloud resources — including EC2 instances, Lambda functions, S3 buckets, RDS databases, Kubernetes clusters, and serverless workloads — and surfaces anomalies, cost spikes, and SLA breaches in a unified dashboard.\n\nKey capabilities:\n- Real-time metrics with a 10-second polling interval on Growth and Scale plans.\n- Customisable alert rules with threshold, anomaly-detection, and forecast-based triggers.\n- Cost attribution by team, project tag, or resource group.\n- Automated remediation scripts for common issues (e.g., auto-stop idle instances).\n- SOC 2 Type II certified; all data is encrypted at rest (AES-256) and in transit (TLS 1.3).",
+  "tags": [
+    "overview",
+    "features",
+    "cloud providers",
+    "monitoring"
+  ],
+  "version": "2.4"
+}

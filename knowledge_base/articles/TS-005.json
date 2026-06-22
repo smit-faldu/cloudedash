@@ -1,0 +1,15 @@
+{
+  "id": "TS-005",
+  "category": "troubleshooting",
+  "title": "Alert rule fires continuously (alert storm / flapping)",
+  "content": "**Symptom:** An alert rule is triggering and resolving repeatedly in short cycles, flooding your notification channel with dozens of messages per hour.\n\n**Root Cause:** Alert flapping occurs when a metric oscillates around the threshold value. Without hysteresis (a recovery threshold), the alert flips between FIRING and RESOLVED on every evaluation cycle.\n\n**Resolution:**\n\n**1. Add a recovery threshold (hysteresis):**\n   In the alert rule editor, set a separate 'Resolve Condition' that is more lenient    than the fire condition. Example:\n   - Fire when: CPU > 85% for 5 minutes\n   - Resolve when: CPU < 70% for 10 minutes\n\n**2. Increase the evaluation window:**\n   Change 'Evaluate every: 1 minute' to '5 minutes'.    This smooths out brief spikes.\n\n**3. Enable the built-in flap detection:**\n   Alert rule → Advanced Options → Enable Flap Detection.    This suppresses notifications if the alert state changes more than 4 times    in a 20-minute window.\n\n**4. Set a cooldown period:**\n   Alert rule → Notifications → Cooldown: 30 minutes.    Prevents repeat notifications until the cooldown expires even if the alert    continues to fire.",
+  "tags": [
+    "alert storm",
+    "flapping",
+    "alert rule",
+    "hysteresis",
+    "cooldown",
+    "troubleshooting"
+  ],
+  "version": "2.4"
+}

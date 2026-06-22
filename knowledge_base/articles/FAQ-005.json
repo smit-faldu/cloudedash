@@ -1,0 +1,14 @@
+{
+  "id": "FAQ-005",
+  "category": "faq",
+  "title": "How does the cost optimisation feature work?",
+  "content": "CloudDash Cost Optimizer analyses your cloud spend and automatically identifies savings opportunities using three engines:\n\n1. **Idle Resource Detection** – Flags EC2, RDS, and Azure VM instances with CPU < 5% and network < 1 MB/s for 14+ consecutive days. CloudDash can auto-stop these with your approval.\n\n2. **Right-sizing Recommendations** – Compares your instances' actual peak utilization against available instance families and recommends downsizing (e.g., m5.2xlarge → m5.large) with projected monthly savings.\n\n3. **Reserved/Savings Plan Advisor** – Based on your 90-day usage patterns, recommends the optimal mix of 1-year Reserved Instances or Savings Plans to minimize on-demand costs. Typically saves 30–60% vs. on-demand.\n\nCost Optimizer is enabled by default on Growth and Scale plans. On Starter, only the Idle Resource report is available (recommendations only, no auto-remediation).",
+  "tags": [
+    "cost",
+    "optimization",
+    "savings",
+    "idle resources",
+    "right-sizing"
+  ],
+  "version": "2.4"
+}

@@ -1,0 +1,15 @@
+{
+  "id": "TS-004",
+  "category": "troubleshooting",
+  "title": "Error ERR-3007: FAISS index out of memory on self-hosted agent",
+  "content": "**Error Code:** ERR-3007 (self-hosted CloudDash Agent only)\n**Symptom:** The CloudDash Agent process crashes with ERR-3007 and the log contains 'Insufficient memory to build local metric index'.\n\n**Root Cause:** The CloudDash Agent uses an in-memory metric buffer for local aggregation before shipping data. This buffer grows proportionally to the number of monitored resources × metric dimensions × polling interval.\n\n**Resolution Options:**\n\n**Option A — Increase agent memory allocation:**\n   Edit /etc/clouddash-agent/agent.yaml:\n   ```\n   memory:\n     max_buffer_mb: 512   # increase from default 256\n   ```\n   Restart: sudo systemctl restart clouddash-agent\n\n**Option B — Reduce monitored resource scope:**\n   Use include/exclude filters in agent.yaml to monitor only critical resources:\n   ```\n   filters:\n     include_tags:\n       - Environment: production\n   ```\n\n**Option C — Increase polling interval:**\n   Change polling_interval_seconds from 10 to 60 to reduce buffer pressure.\n\n**Minimum recommended host specs:** 2 vCPU, 4 GB RAM for up to 500 resources.",
+  "tags": [
+    "ERR-3007",
+    "agent",
+    "memory",
+    "self-hosted",
+    "troubleshooting",
+    "OOM"
+  ],
+  "version": "2.4"
+}

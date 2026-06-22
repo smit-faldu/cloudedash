@@ -1,0 +1,14 @@
+{
+  "id": "BIL-004",
+  "category": "billing",
+  "title": "Refund and dispute policy",
+  "content": "**Refund eligibility:**\nCloudDash operates a no-refund policy on subscription fees once a billing period has started, except in the following circumstances:\n\n1. **Service outage SLA breach:** If CloudDash's uptime falls below the    guaranteed SLA (99.9% monthly on Growth; 99.95% on Scale/Enterprise),    you are entitled to a service credit equal to 10× the downtime as a percentage    of your monthly bill.\n2. **Duplicate charge:** If you were charged twice for the same billing period    due to a CloudDash system error, a full refund of the duplicate charge is issued    within 5 business days.\n3. **Annual plan cancellation within 14 days:** If you cancel an annual plan    within 14 days of the renewal date, a pro-rated refund for unused months is issued.\n\n**How to request a refund:**\nRefunds cannot be processed automatically — they require review by the Billing Team. Submit a refund request via the Support portal, including:\n- Your account email and customer ID (format: CLD-XXXXX)\n- The invoice number in question\n- The reason for the refund request\n\nRefund requests are reviewed within 3 business days. Approved refunds are credited to the original payment method within 5–10 business days.",
+  "tags": [
+    "refund",
+    "dispute",
+    "billing policy",
+    "sla credit",
+    "duplicate charge"
+  ],
+  "version": "2.4"
+}

@@ -1,0 +1,41 @@
+# CloudDash Multi-Agent Customer Support System
+# Python 
+
+# --- Orchestration & Agent Framework ---
+langchain
+langchain-core
+langchain-community
+langchain-google-genai
+langchain-text-splitters
+langgraph
+
+# --- LLM & Embeddings ---
+google-generativeai
+sentence-transformers
+
+# --- Vector Store ---
+faiss-cpu
+
+# --- Backend API ---
+fastapi
+uvicorn[standard]
+
+# --- Data Validation & Settings ---
+pydantic
+pydantic-settings
+
+# --- Configuration ---
+pyyaml
+python-dotenv
+
+# --- Database (Stage 3) ---
+# sqlalchemy is listed here so the venv is consistent across all stages
+sqlalchemy
+
+# --- Utilities ---
+httpx
+tenacity
+
+# --- Development & Testing ---
+pytest
+pytest-asyncio

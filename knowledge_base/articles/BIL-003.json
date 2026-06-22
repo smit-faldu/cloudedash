@@ -1,0 +1,15 @@
+{
+  "id": "BIL-003",
+  "category": "billing",
+  "title": "Understanding your CloudDash invoice",
+  "content": "CloudDash invoices are generated on the 1st of each month (for monthly plans) or annually on the renewal date (for annual plans).\n\n**Invoice line items:**\n- **Base subscription:** Your plan's monthly/annual fee.\n- **Pro-rated charges:** Adjustments for mid-cycle upgrades.\n- **Add-on services:** Log Aggregation, Extended Retention, Premium Support.\n- **Overage charges:** If your resource count exceeded plan limits during the period   (only applicable on metered Enterprise plans).\n\n**Accessing your invoices:**\nSettings → Billing → Invoice History. All invoices are downloadable as PDF.\n\n**Payment methods accepted:**\nVisa, Mastercard, American Express, and ACH bank transfer (Enterprise only).\n\n**Failed payment handling:**\nIf a payment fails, CloudDash sends an email notification and retries after 3, 7, and 14 days. After 3 failed retries, the account is suspended (dashboards become read-only; data collection pauses). Account access is restored immediately upon successful payment.\n\n**VAT/Tax:** CloudDash adds applicable VAT/GST for EU and AU customers automatically. To add a VAT ID, go to Settings → Billing → Tax Information.",
+  "tags": [
+    "invoice",
+    "billing",
+    "payment",
+    "failed payment",
+    "vat",
+    "tax"
+  ],
+  "version": "2.4"
+}

@@ -1,0 +1,15 @@
+{
+  "id": "TS-001",
+  "category": "troubleshooting",
+  "title": "Error ERR-4012: Integration disconnected — AWS credentials expired",
+  "content": "**Error Code:** ERR-4012\n**Symptom:** The CloudDash dashboard shows a red 'Integration Error' banner. Metrics from AWS stop updating. The integration status page shows 'AWS credentials expired or revoked'.\n\n**Root Cause:** CloudDash uses an IAM Role (cross-account assume-role) to access your AWS account. This error occurs when:\n  a) The IAM role was deleted or its trust policy was modified.\n  b) The external ID in the trust policy was changed.\n  c) The IAM policy attached to the role no longer grants required permissions.\n\n**Resolution Steps:**\n1. Go to Settings → Integrations → AWS → View Details.\n2. Click 'Re-authenticate'. CloudDash will display the IAM Role ARN and External ID.\n3. In your AWS Console, navigate to IAM → Roles → find the CloudDash role.\n4. Verify the Trust Relationship matches the CloudDash account ID (123456789012)    and the External ID shown in step 2.\n5. Verify the attached policy includes: cloudwatch:GetMetricData,    cloudwatch:ListMetrics, ec2:Describe*, rds:Describe*, s3:ListAllMyBuckets,    ce:GetCostAndUsage.\n6. Click 'Test Connection' in CloudDash. If it passes, metrics resume within 2 minutes.\n\n**If the issue persists:** Contact support with your Integration ID (visible on the integration details page) and the error timestamp.",
+  "tags": [
+    "ERR-4012",
+    "aws",
+    "iam",
+    "credentials",
+    "integration error",
+    "troubleshooting"
+  ],
+  "version": "2.4"
+}

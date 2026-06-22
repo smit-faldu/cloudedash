@@ -1,0 +1,15 @@
+{
+  "id": "FAQ-004",
+  "category": "faq",
+  "title": "What are the data retention policies for metrics and logs?",
+  "content": "CloudDash stores raw metrics, aggregated time-series data, and alert history according to the following retention schedule:\n\n| Plan        | Raw Metrics (1-min resolution) | Aggregated (5-min) | Alert History |\n|-------------|-------------------------------|---------------------|---------------|\n| Starter     | 7 days                        | 30 days             | 90 days       |\n| Growth      | 30 days                       | 6 months            | 1 year        |\n| Scale       | 90 days                       | 2 years             | 3 years       |\n| Enterprise  | Custom (up to 7 years)        | Custom              | Custom        |\n\nLog data (from the optional Log Aggregation add-on) is retained for 30 days on Growth and 90 days on Scale. Longer retention is available as a paid add-on ($0.10/GB/month).\n\n**Data export:** All data can be exported via the `/export` API endpoint in CSV, JSON, or Parquet format before retention expiry. See API-003 for the export endpoint docs.",
+  "tags": [
+    "retention",
+    "data",
+    "metrics",
+    "logs",
+    "storage",
+    "plan"
+  ],
+  "version": "2.4"
+}

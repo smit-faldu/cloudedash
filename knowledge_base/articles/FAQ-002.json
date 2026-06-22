@@ -1,0 +1,14 @@
+{
+  "id": "FAQ-002",
+  "category": "faq",
+  "title": "Which cloud providers does CloudDash support?",
+  "content": "CloudDash currently supports the three major cloud providers:\n\n1. **Amazon Web Services (AWS)** – EC2, RDS, S3, Lambda, EKS, CloudFront, SQS, SNS, ElastiCache, and 140+ other services via CloudWatch integration.\n2. **Google Cloud Platform (GCP)** – Compute Engine, Cloud Run, GKE, BigQuery, Cloud SQL, Pub/Sub, and Cloud Storage via the GCP Monitoring API.\n3. **Microsoft Azure** – Virtual Machines, AKS, Azure Functions, Cosmos DB, Azure SQL, Blob Storage, and Service Bus via Azure Monitor.\n\nMulti-cloud views: You can combine metrics from all three providers into a single dashboard or alert rule. For example, you can trigger a PagerDuty alert when combined spend across AWS and GCP exceeds your monthly budget.\n\nOn-premise / hybrid: Limited support via the CloudDash Agent (self-hosted binary). Refer to the Hybrid Deployment Guide for details.",
+  "tags": [
+    "aws",
+    "gcp",
+    "azure",
+    "cloud providers",
+    "integration"
+  ],
+  "version": "2.4"
+}

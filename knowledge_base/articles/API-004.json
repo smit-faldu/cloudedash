@@ -1,0 +1,16 @@
+{
+  "id": "API-004",
+  "category": "api_docs",
+  "title": "Data Export API — Bulk export metrics and logs",
+  "content": "Export historical metric data or log entries in bulk for external analysis.\n\n**Endpoint:** POST https://api.clouddash.io/v2/export\n\n**Request Body:**\n```json\n{\n  \"type\": \"metrics\",\n  \"resource_ids\": [\"aws-ec2-i-0abc123\", \"aws-rds-db-xyz\"],\n  \"metrics\": [\"CPUUtilization\", \"NetworkIn\", \"DiskWriteOps\"],\n  \"start_time\": \"2024-01-01T00:00:00Z\",\n  \"end_time\": \"2024-01-31T23:59:59Z\",\n  \"format\": \"parquet\",\n  \"resolution\": \"5m\",\n  \"destination\": {\n    \"type\": \"s3\",\n    \"bucket\": \"my-export-bucket\",\n    \"prefix\": \"clouddash-exports/jan-2024/\"\n  }\n}\n```\n\n**Export formats:** json, csv, parquet\n**Destinations:** s3, gcs, azure_blob, or presigned_url (for direct download)\n\n**Async processing:** Large exports return HTTP 202 Accepted with an export_job_id. Poll GET /v2/export/{export_job_id} for status (pending → processing → completed → failed). Completed exports include a download URL or confirm delivery to the specified destination.\n\n**Limits:**\n- Max time range per export: 90 days (Growth), 2 years (Scale/Enterprise)\n- Max resources per export: 1,000\n- Concurrent exports: 3 (Growth), 10 (Scale/Enterprise)",
+  "tags": [
+    "api",
+    "export",
+    "bulk",
+    "parquet",
+    "s3",
+    "data export",
+    "async"
+  ],
+  "version": "2.4"
+}

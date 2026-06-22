@@ -1,0 +1,15 @@
+{
+  "id": "API-001",
+  "category": "api_docs",
+  "title": "Authentication — API Keys and OAuth 2.0",
+  "content": "CloudDash offers two authentication mechanisms for API access:\n\n**1. API Keys (recommended for server-to-server)**\nGenerate API keys from Settings → Developer → API Keys.\nPass the key in every request header:\n```\nAuthorization: Bearer cd_live_xxxxxxxxxxxxxxxxxxxx\n```\nKey types:\n- **Read-only:** Can GET metrics, dashboards, alerts. Cannot modify resources.\n- **Read-write:** Full API access. Rotate every 90 days.\n- **Admin:** Includes user management and billing endpoints. Restrict carefully.\n\nKey rate limits:\n- Starter: 100 requests/minute\n- Growth: 500 requests/minute\n- Scale/Enterprise: 2,000 requests/minute (higher on request)\n\n**2. OAuth 2.0 (recommended for user-facing integrations)**\nCloudDash supports the Authorization Code flow with PKCE.\n- Authorization endpoint: https://auth.clouddash.io/oauth/authorize\n- Token endpoint: https://auth.clouddash.io/oauth/token\n- Available scopes: metrics:read, alerts:write, billing:read, admin:write\n\nAccess tokens expire after 1 hour. Use the refresh token to obtain a new access token (refresh tokens expire after 30 days or on first use).",
+  "tags": [
+    "api",
+    "authentication",
+    "api key",
+    "oauth",
+    "bearer token",
+    "rate limiting"
+  ],
+  "version": "2.4"
+}

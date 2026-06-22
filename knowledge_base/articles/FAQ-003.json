@@ -1,0 +1,15 @@
+{
+  "id": "FAQ-003",
+  "category": "faq",
+  "title": "How do I invite team members and manage roles?",
+  "content": "CloudDash uses role-based access control (RBAC) with four built-in roles:\n\n| Role        | Description                                              |\n|-------------|----------------------------------------------------------|\n| Owner       | Full control, billing access, can delete the account.    |\n| Admin       | Manage integrations, users, and alert rules.             |\n| Editor      | Create/edit dashboards and alert rules; no billing access.|\n| Viewer      | Read-only access to dashboards and reports.              |\n\n**To invite a team member:**\n1. Go to Settings → Team Members → Invite Member.\n2. Enter the email address and select a role.\n3. Click Send Invite. The invitee receives an email with a secure link (expires in 48 hours).\n\n**SSO:** Growth and Scale plans support SAML 2.0 SSO (Okta, Google Workspace, Azure AD). Configure under Settings → Security → Single Sign-On.\n\n**Seat limits:** Starter: 3 seats. Growth: 15 seats. Scale: unlimited.",
+  "tags": [
+    "rbac",
+    "team",
+    "users",
+    "sso",
+    "invite",
+    "permissions"
+  ],
+  "version": "2.4"
+}

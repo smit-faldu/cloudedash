@@ -1,0 +1,15 @@
+{
+  "id": "BIL-002",
+  "category": "billing",
+  "title": "How to upgrade or downgrade your subscription plan",
+  "content": "**Upgrading your plan:**\nPlan upgrades take effect immediately. You are billed a pro-rated amount for the remainder of the current billing cycle.\n\nSteps:\n1. Go to Settings → Billing → Change Plan.\n2. Select the new plan and click 'Upgrade Now'.\n3. Confirm the pro-rated charge shown in the preview.\n4. The upgrade activates within 60 seconds.\n\n**Downgrading your plan:**\nPlan downgrades take effect at the start of the next billing cycle. You will retain current plan features until then.\n\nImportant considerations before downgrading:\n- If your current resource count exceeds the lower plan's limit,   CloudDash will automatically stop monitoring the excess resources   (oldest integrations are paused first).\n- SSO and advanced security features are disabled immediately on downgrade to Starter.\n- Historical data beyond the new plan's retention period is queued for deletion   after 30 days (giving you time to export).\n\n**Cancellation:**\nYou can cancel at any time from Settings → Billing → Cancel Subscription. Your account remains active until the end of the paid billing period. Data is retained for 90 days post-cancellation, after which it is permanently deleted.",
+  "tags": [
+    "upgrade",
+    "downgrade",
+    "plan change",
+    "cancel",
+    "billing",
+    "subscription"
+  ],
+  "version": "2.4"
+}

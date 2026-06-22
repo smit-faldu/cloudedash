@@ -1,0 +1,270 @@
+[
+  {
+    "id": "FAQ-001",
+    "category": "faq",
+    "title": "What is CloudDash and what does it monitor?",
+    "tags": [
+      "overview",
+      "features",
+      "cloud providers",
+      "monitoring"
+    ],
+    "version": "2.4",
+    "file": "FAQ-001.json"
+  },
+  {
+    "id": "FAQ-002",
+    "category": "faq",
+    "title": "Which cloud providers does CloudDash support?",
+    "tags": [
+      "aws",
+      "gcp",
+      "azure",
+      "cloud providers",
+      "integration"
+    ],
+    "version": "2.4",
+    "file": "FAQ-002.json"
+  },
+  {
+    "id": "FAQ-003",
+    "category": "faq",
+    "title": "How do I invite team members and manage roles?",
+    "tags": [
+      "rbac",
+      "team",
+      "users",
+      "sso",
+      "invite",
+      "permissions"
+    ],
+    "version": "2.4",
+    "file": "FAQ-003.json"
+  },
+  {
+    "id": "FAQ-004",
+    "category": "faq",
+    "title": "What are the data retention policies for metrics and logs?",
+    "tags": [
+      "retention",
+      "data",
+      "metrics",
+      "logs",
+      "storage",
+      "plan"
+    ],
+    "version": "2.4",
+    "file": "FAQ-004.json"
+  },
+  {
+    "id": "FAQ-005",
+    "category": "faq",
+    "title": "How does the cost optimisation feature work?",
+    "tags": [
+      "cost",
+      "optimization",
+      "savings",
+      "idle resources",
+      "right-sizing"
+    ],
+    "version": "2.4",
+    "file": "FAQ-005.json"
+  },
+  {
+    "id": "TS-001",
+    "category": "troubleshooting",
+    "title": "Error ERR-4012: Integration disconnected — AWS credentials expired",
+    "tags": [
+      "ERR-4012",
+      "aws",
+      "iam",
+      "credentials",
+      "integration error",
+      "troubleshooting"
+    ],
+    "version": "2.4",
+    "file": "TS-001.json"
+  },
+  {
+    "id": "TS-002",
+    "category": "troubleshooting",
+    "title": "Error ERR-5001: Alert notifications not being delivered",
+    "tags": [
+      "ERR-5001",
+      "alerts",
+      "notifications",
+      "slack",
+      "pagerduty",
+      "email",
+      "troubleshooting"
+    ],
+    "version": "2.4",
+    "file": "TS-002.json"
+  },
+  {
+    "id": "TS-003",
+    "category": "troubleshooting",
+    "title": "Dashboard metrics show 'No Data' for last 24 hours",
+    "tags": [
+      "no data",
+      "dashboard",
+      "metrics",
+      "troubleshooting",
+      "backfill",
+      "integration"
+    ],
+    "version": "2.4",
+    "file": "TS-003.json"
+  },
+  {
+    "id": "TS-004",
+    "category": "troubleshooting",
+    "title": "Error ERR-3007: FAISS index out of memory on self-hosted agent",
+    "tags": [
+      "ERR-3007",
+      "agent",
+      "memory",
+      "self-hosted",
+      "troubleshooting",
+      "OOM"
+    ],
+    "version": "2.4",
+    "file": "TS-004.json"
+  },
+  {
+    "id": "TS-005",
+    "category": "troubleshooting",
+    "title": "Alert rule fires continuously (alert storm / flapping)",
+    "tags": [
+      "alert storm",
+      "flapping",
+      "alert rule",
+      "hysteresis",
+      "cooldown",
+      "troubleshooting"
+    ],
+    "version": "2.4",
+    "file": "TS-005.json"
+  },
+  {
+    "id": "BIL-001",
+    "category": "billing",
+    "title": "CloudDash pricing plans overview",
+    "tags": [
+      "pricing",
+      "plans",
+      "billing",
+      "starter",
+      "growth",
+      "scale",
+      "enterprise"
+    ],
+    "version": "2.4",
+    "file": "BIL-001.json"
+  },
+  {
+    "id": "BIL-002",
+    "category": "billing",
+    "title": "How to upgrade or downgrade your subscription plan",
+    "tags": [
+      "upgrade",
+      "downgrade",
+      "plan change",
+      "cancel",
+      "billing",
+      "subscription"
+    ],
+    "version": "2.4",
+    "file": "BIL-002.json"
+  },
+  {
+    "id": "BIL-003",
+    "category": "billing",
+    "title": "Understanding your CloudDash invoice",
+    "tags": [
+      "invoice",
+      "billing",
+      "payment",
+      "failed payment",
+      "vat",
+      "tax"
+    ],
+    "version": "2.4",
+    "file": "BIL-003.json"
+  },
+  {
+    "id": "BIL-004",
+    "category": "billing",
+    "title": "Refund and dispute policy",
+    "tags": [
+      "refund",
+      "dispute",
+      "billing policy",
+      "sla credit",
+      "duplicate charge"
+    ],
+    "version": "2.4",
+    "file": "BIL-004.json"
+  },
+  {
+    "id": "API-001",
+    "category": "api_docs",
+    "title": "Authentication — API Keys and OAuth 2.0",
+    "tags": [
+      "api",
+      "authentication",
+      "api key",
+      "oauth",
+      "bearer token",
+      "rate limiting"
+    ],
+    "version": "2.4",
+    "file": "API-001.json"
+  },
+  {
+    "id": "API-002",
+    "category": "api_docs",
+    "title": "Metrics Query API — GET /v2/metrics",
+    "tags": [
+      "api",
+      "metrics",
+      "GET",
+      "time-series",
+      "CPUUtilization",
+      "query"
+    ],
+    "version": "2.4",
+    "file": "API-002.json"
+  },
+  {
+    "id": "API-003",
+    "category": "api_docs",
+    "title": "Alerts API — Create and manage alert rules via API",
+    "tags": [
+      "api",
+      "alerts",
+      "POST",
+      "webhook",
+      "create alert",
+      "manage alerts"
+    ],
+    "version": "2.4",
+    "file": "API-003.json"
+  },
+  {
+    "id": "API-004",
+    "category": "api_docs",
+    "title": "Data Export API — Bulk export metrics and logs",
+    "tags": [
+      "api",
+      "export",
+      "bulk",
+      "parquet",
+      "s3",
+      "data export",
+      "async"
+    ],
+    "version": "2.4",
+    "file": "API-004.json"
+  }
+]

@@ -1,0 +1,15 @@
+{
+  "id": "TS-003",
+  "category": "troubleshooting",
+  "title": "Dashboard metrics show 'No Data' for last 24 hours",
+  "content": "**Symptom:** One or more dashboard panels display 'No Data' or a flat line despite resources being active in your cloud account.\n\n**Step 1 — Check integration health:**\n   Navigate to Settings → Integrations. If any integration shows a warning or error icon,    resolve that first (see ERR-4012 for AWS credential issues).\n\n**Step 2 — Verify the metric namespace:**\n   For AWS, some metrics (e.g., ECS container metrics) require the CloudWatch Agent    to be installed on the host and are not available via the standard CloudWatch API.    Check Settings → Integrations → AWS → Enhanced Monitoring.\n\n**Step 3 — Check time-zone alignment:**\n   CloudDash stores metrics in UTC. If your dashboard's time picker is set to a local    timezone with a large offset, you may be viewing a future time range.    Set the picker to 'Last 3 hours' to confirm data is arriving.\n\n**Step 4 — Check plan limits:**\n   Starter plan accounts are limited to 50 monitored resources. If you have exceeded    this limit, newer resources are silently excluded. Navigate to Settings → Usage to    view your resource count.\n\n**Step 5 — Wait for backfill:**\n   After reconnecting an integration, CloudDash backfills up to 72 hours of historical    data. This process can take 15–30 minutes for large accounts.",
+  "tags": [
+    "no data",
+    "dashboard",
+    "metrics",
+    "troubleshooting",
+    "backfill",
+    "integration"
+  ],
+  "version": "2.4"
+}

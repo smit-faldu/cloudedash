@@ -1,0 +1,15 @@
+{
+  "id": "API-002",
+  "category": "api_docs",
+  "title": "Metrics Query API — GET /v2/metrics",
+  "content": "Retrieve time-series metric data for monitored resources.\n\n**Endpoint:** GET https://api.clouddash.io/v2/metrics\n\n**Request Parameters:**\n| Parameter      | Type     | Required | Description                                    |\n|----------------|----------|----------|------------------------------------------------|\n| resource_id    | string   | Yes      | CloudDash resource ID (e.g., aws-ec2-i-abc123) |\n| metric_name    | string   | Yes      | Metric name (e.g., CPUUtilization)             |\n| start_time     | ISO 8601 | Yes      | Start of time range (UTC)                      |\n| end_time       | ISO 8601 | Yes      | End of time range (UTC)                        |\n| resolution     | string   | No       | '1m', '5m', '1h', '1d' (default: '5m')        |\n| aggregation    | string   | No       | 'avg', 'max', 'min', 'sum', 'p99' (default: 'avg') |\n\n**Example Request:**\n```bash\ncurl -H 'Authorization: Bearer cd_live_xxx' \\\n  'https://api.clouddash.io/v2/metrics?resource_id=aws-ec2-i-0abc123&metric_name=CPUUtilization&start_time=2024-01-01T00:00:00Z&end_time=2024-01-01T01:00:00Z'\n```\n\n**Response (200 OK):**\n```json\n{\n  \"resource_id\": \"aws-ec2-i-0abc123\",\n  \"metric_name\": \"CPUUtilization\",\n  \"unit\": \"Percent\",\n  \"datapoints\": [\n    {\"timestamp\": \"2024-01-01T00:00:00Z\", \"value\": 42.3},\n    {\"timestamp\": \"2024-01-01T00:05:00Z\", \"value\": 38.1}\n  ]\n}\n```\n\n**Error Codes:**\n- 400: Invalid parameters (check start_time < end_time, valid metric_name).\n- 404: Resource not found or not monitored by this account.\n- 429: Rate limit exceeded. Retry after the number of seconds in Retry-After header.",
+  "tags": [
+    "api",
+    "metrics",
+    "GET",
+    "time-series",
+    "CPUUtilization",
+    "query"
+  ],
+  "version": "2.4"
+}

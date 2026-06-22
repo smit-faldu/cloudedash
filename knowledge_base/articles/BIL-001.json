@@ -1,0 +1,16 @@
+{
+  "id": "BIL-001",
+  "category": "billing",
+  "title": "CloudDash pricing plans overview",
+  "content": "CloudDash offers four subscription tiers designed for teams of all sizes:\n\n| Plan       | Price           | Resources | Seats | Key Features                            |\n|------------|-----------------|-----------|-------|-----------------------------------------|\n| Starter    | $49 / month     | Up to 50  | 3     | Basic monitoring, 7-day metric history  |\n| Growth     | $149 / month    | Up to 250 | 15    | SSO, anomaly detection, 30-day history  |\n| Scale      | $499 / month    | Unlimited | Unlimited | Custom alerts, 90-day raw history   |\n| Enterprise | Custom pricing  | Unlimited | Unlimited | SLA, dedicated support, private cloud |\n\n**Annual billing:** 20% discount on all plans when paid annually (Growth and above).\n\n**Add-ons (available on Growth and above):**\n- Log Aggregation: $29/month per 10 GB/day ingestion.\n- Extended Retention: $0.10/GB/month beyond plan limits.\n- Premium Support: $299/month — 1-hour SLA response time.\n\n**Free trial:** 14-day free trial on all plans, no credit card required. Trial accounts default to Growth plan features. After trial, the account downgrades to Starter unless upgraded.",
+  "tags": [
+    "pricing",
+    "plans",
+    "billing",
+    "starter",
+    "growth",
+    "scale",
+    "enterprise"
+  ],
+  "version": "2.4"
+}

@@ -1,0 +1,41 @@
+# CloudDash .gitignore
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+
+# --- Virtual Environment ---
+.venv/
+venv/
+env/
+
+# --- Environment / Secrets ---
+.env
+
+# # --- Database ---
+# *.db
+# *.sqlite
+# database/faiss_index/
+
+# --- FAISS Index (generated in Stage 2) ---
+knowledge_base/faiss_index/
+
+# --- IDE ---
+.idea/
+.vscode/
+*.code-workspace
+
+# --- OS ---
+.DS_Store
+Thumbs.db
+
+# --- Pytest ---
+.pytest_cache/
+.coverage
+htmlcov/
