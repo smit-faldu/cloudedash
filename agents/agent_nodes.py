@@ -68,6 +68,7 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_core.messages import BaseMessage
 
 from config.config_loader import get_config
 from models.models import (
@@ -194,18 +195,24 @@ def _format_history(state: AgentState, max_turns: int = 10) -> list[HumanMessage
     Skips system and tool messages — they are not part of the user-facing dialogue.
     """
     messages = state.get("messages", [])
-    recent = messages[-max_turns * 2:]  # *2 because each turn = user + assistant
-    lc_messages: list[HumanMessage | AIMessage] = []
+    # Grab more messages to ensure we don't cut off half of a tool execution loop
+    recent = messages[-max_turns * 3:] 
+    lc_messages = []
+    
     for msg in recent:
-        role = _get_message_role(msg)
-        content = getattr(msg, "content", None)
-        if content is None and isinstance(msg, dict):
-            content = msg.get("content", "")
-        if role == "user":
-            lc_messages.append(HumanMessage(content=content or ""))
-        elif role == "assistant":
-            lc_messages.append(AIMessage(content=content or ""))
-        # skip system / tool messages
+        if isinstance(msg, BaseMessage):
+            # Keep everything except hidden system prompts
+            if msg.type != "system":
+                lc_messages.append(msg)
+        else:
+            # Fallback for plain dictionaries
+            role = _get_message_role(msg)
+            content = msg.get("content", "") if isinstance(msg, dict) else getattr(msg, "content", "")
+            if role == "user":
+                lc_messages.append(HumanMessage(content=content or ""))
+            elif role == "assistant":
+                lc_messages.append(AIMessage(content=content or ""))
+                
     return lc_messages
 
 
@@ -368,10 +375,16 @@ def run_technical_support_agent(state: AgentState) -> AgentResponse:
     ai_msg = _call()
     
     # Safely parse content to avoid "[]" strings when Gemini uses tools
-    if isinstance(ai_msg.content, list) and not ai_msg.content:
-        response_content = ""
+    if isinstance(ai_msg.content, list):
+        text_parts = []
+        for block in ai_msg.content:
+            if isinstance(block, str):
+                text_parts.append(block)
+            elif isinstance(block, dict) and "text" in block:
+                text_parts.append(block["text"])
+        response_content = "".join(text_parts).strip()
     else:
-        response_content = ai_msg.content if isinstance(ai_msg.content, str) else str(ai_msg.content)
+        response_content = str(ai_msg.content).strip()        
     # ---- Extract source citations from response ----
     # The agent is instructed to list source IDs in a "Sources:" section
     source_ids: list[str] = []
@@ -389,24 +402,21 @@ def run_technical_support_agent(state: AgentState) -> AgentResponse:
     target_agent: AgentName | None = None
     handover_reason: str | None = None
 
-    escalation_phrases = [
-        "escalate", "I'll escalate", "unable to find specific documentation",
-        "cannot resolve", "needs human", "beyond my capabilities",
-    ]
-    billing_phrases = ["billing", "invoice", "payment", "subscription", "refund"]
-
     lower_content = response_content.lower()
-    if any(p.lower() in lower_content for p in billing_phrases) and "billing" in lower_content:
-        # Soft signal — agent may have detected a billing question
-        if "hand" in lower_content or "transfer" in lower_content or "billing agent" in lower_content:
-            needs_handover = True
+    
+    # Check for explicit handover instructions from the LLM
+    if "needs_handover = true" in lower_content or "needs_handover: true" in lower_content:
+        needs_handover = True
+        if "billing" in lower_content:
             target_agent = AgentName.BILLING
             handover_reason = "Billing-related question detected; routing to Billing Agent."
-
-    if any(p.lower() in lower_content for p in escalation_phrases):
+        else:
+            target_agent = AgentName.ESCALATION
+            handover_reason = "Technical Agent could not resolve the issue."
+    elif "i will escalate" in lower_content or "i'll escalate" in lower_content:
         needs_handover = True
         target_agent = AgentName.ESCALATION
-        handover_reason = "Technical Agent could not resolve the issue from the knowledge base."
+        handover_reason = "Technical Agent could not resolve the issue."
 
     logger.info(
         "[%s] Technical Support Agent response ready. Sources: %s, handover: %s",
@@ -494,10 +504,16 @@ def run_billing_agent(state: AgentState) -> AgentResponse:
     ai_msg = _call()
     
     # Safely parse content to avoid "[]" strings when Gemini uses tools
-    if isinstance(ai_msg.content, list) and not ai_msg.content:
-        response_content = ""
+    if isinstance(ai_msg.content, list):
+        text_parts = []
+        for block in ai_msg.content:
+            if isinstance(block, str):
+                text_parts.append(block)
+            elif isinstance(block, dict) and "text" in block:
+                text_parts.append(block["text"])
+        response_content = "".join(text_parts).strip()
     else:
-        response_content = ai_msg.content if isinstance(ai_msg.content, str) else str(ai_msg.content)
+        response_content = str(ai_msg.content).strip()        
     # ---- Detect handover signals ----
     needs_handover = False
     target_agent: AgentName | None = None
@@ -505,23 +521,19 @@ def run_billing_agent(state: AgentState) -> AgentResponse:
 
     lower = response_content.lower()
 
-    refund_signals = ["refund", "reimburse", "money back", "chargeback"]
-    technical_signals = ["technical", "error code", "integration issue", "api problem", "monitoring"]
-    escalation_signals = ["cannot process", "requires human", "escalat", "billing team", "manual review"]
-
-    if any(p in lower for p in refund_signals):
+    # Check for explicit handover instructions from the LLM
+    if "needs_handover = true" in lower or "needs_handover: true" in lower:
         needs_handover = True
-        target_agent = AgentName.ESCALATION
-        handover_reason = "Refund request detected; requires human operator approval."
-    elif any(p in lower for p in escalation_signals):
-        needs_handover = True
-        target_agent = AgentName.ESCALATION
-        handover_reason = "Billing issue requires human operator review."
-    elif any(p in lower for p in technical_signals) and "technical" in lower:
-        if "technical agent" in lower or "technical support" in lower:
-            needs_handover = True
+        if "technical" in lower:
             target_agent = AgentName.TECHNICAL_SUPPORT
-            handover_reason = "Technical question detected; routing to Technical Support Agent."
+            handover_reason = "Technical question detected; routing to Technical Support."
+        else:
+            target_agent = AgentName.ESCALATION
+            handover_reason = "Escalation requested by Billing Agent."
+    elif "i will escalate" in lower or "i'll escalate" in lower:
+        needs_handover = True
+        target_agent = AgentName.ESCALATION
+        handover_reason = "Escalation requested by Billing Agent."
 
     logger.info(
         "[%s] Billing Agent response ready. handover: %s → %s",
@@ -539,7 +551,6 @@ def run_billing_agent(state: AgentState) -> AgentResponse:
         # ADD tool_calls HERE
         metadata={"trace_id": trace, "customer_id": customer_id, "tool_calls": getattr(ai_msg, "tool_calls", [])},
     )
-
 
 # ===========================================================================
 # Agent 4 — Escalation Agent

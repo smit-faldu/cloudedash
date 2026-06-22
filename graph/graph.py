@@ -220,6 +220,7 @@ def technical_support_node(state: GraphState) -> dict[str, Any]:
         ai_msg = AIMessage(
             content=response.content,
             name="technical_support_agent",
+            tool_calls=response.metadata.get("tool_calls", []) # <-- ADD THIS LINE
         )
 
         handover_increment = 1 if response.needs_handover else 0
@@ -276,6 +277,7 @@ def billing_node(state: GraphState) -> dict[str, Any]:
         ai_msg = AIMessage(
             content=response.content,
             name="billing_agent",
+            tool_calls=response.metadata.get("tool_calls", []) # <-- ADD THIS LINE
         )
 
         handover_increment = 1 if response.needs_handover else 0
