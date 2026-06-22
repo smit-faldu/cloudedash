@@ -36,7 +36,7 @@ The output guardrail uses a two-tier approach:
       contradicts the retrieved context.
     * Only triggered when Tier 1 passes but the response confidence is low,
       or when ``use_llm_judge=True`` is explicitly set.
-    * Uses ``gemini-1.5-flash`` (fast, cheap) as the judge — NOT the same
+    * Uses ``gemini-3.5-flash`` (fast, cheap) as the judge — NOT the same
       model that produced the response being evaluated.
 
 Return contract
@@ -340,7 +340,7 @@ def _llm_judge(
         from langchain_core.messages import HumanMessage
 
         judge_llm = ChatGoogleGenerativeAI(
-            model="gemini-1.5-flash",
+            model="gemini-3.5-flash",
             google_api_key=api_key,
             temperature=0.0,
             max_retries=2,

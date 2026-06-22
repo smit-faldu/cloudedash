@@ -52,9 +52,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from langchain_core.messages import AIMessage, HumanMessage
 
+from dotenv import load_dotenv
+
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
+
+load_dotenv(_PROJECT_ROOT / ".env")
 
 from api.deps import get_app_config, get_compiled_graph, setup_logging
 from api.schemas import (

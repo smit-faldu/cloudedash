@@ -155,6 +155,34 @@ def _llm_retry(fn):
     )(fn)
 
 
+def _get_message_role(msg: Any) -> str:
+    """Extract and normalise the role of a message (object, dict, or LangChain BaseMessage)."""
+    # 1. Try role attribute or dict key (handles ConversationMessage or dicts)
+    role = getattr(msg, "role", None)
+    if role is None and isinstance(msg, dict):
+        role = msg.get("role")
+    
+    if role is not None:
+        if hasattr(role, "value"): # in case it's an Enum
+            return str(role.value).lower()
+        return str(role).lower()
+        
+    # 2. Try type attribute (LangChain BaseMessage uses type='human'/'ai'/'system'/'tool')
+    msg_type = getattr(msg, "type", None)
+    if msg_type is None and isinstance(msg, dict):
+        msg_type = msg.get("type")
+        
+    if msg_type is not None:
+        msg_type_str = str(msg_type).lower()
+        if msg_type_str == "human":
+            return "user"
+        if msg_type_str == "ai":
+            return "assistant"
+        return msg_type_str
+        
+    return ""
+
+
 # ---------------------------------------------------------------------------
 # Conversation history formatter
 # ---------------------------------------------------------------------------
@@ -169,16 +197,13 @@ def _format_history(state: AgentState, max_turns: int = 10) -> list[HumanMessage
     recent = messages[-max_turns * 2:]  # *2 because each turn = user + assistant
     lc_messages: list[HumanMessage | AIMessage] = []
     for msg in recent:
-        # msg may be a Pydantic ConversationMessage or a plain dict (from LangGraph state)
-        role = getattr(msg, "role", None)
-        if role is None and isinstance(msg, dict):
-            role = msg.get("role", "")
+        role = _get_message_role(msg)
         content = getattr(msg, "content", None)
         if content is None and isinstance(msg, dict):
             content = msg.get("content", "")
-        if role == MessageRole.USER or role == "user":
+        if role == "user":
             lc_messages.append(HumanMessage(content=content or ""))
-        elif role in (MessageRole.ASSISTANT, "assistant"):
+        elif role == "assistant":
             lc_messages.append(AIMessage(content=content or ""))
         # skip system / tool messages
     return lc_messages
@@ -187,10 +212,8 @@ def _format_history(state: AgentState, max_turns: int = 10) -> list[HumanMessage
 def _latest_user_message(state: AgentState) -> str:
     """Return the content of the most recent user message in state."""
     for msg in reversed(state.get("messages", [])):
-        role = getattr(msg, "role", None)
-        if role is None and isinstance(msg, dict):
-            role = msg.get("role", "")
-        if role in (MessageRole.USER, "user"):
+        role = _get_message_role(msg)
+        if role == "user":
             content = getattr(msg, "content", None)
             if content is None and isinstance(msg, dict):
                 content = msg.get("content", "")
@@ -246,23 +269,6 @@ def _parse_triage_json(raw: str) -> TriageResult:
 
 
 def run_triage_agent(state: AgentState) -> TriageResult:
-    """
-    Triage Agent — classifies user intent and extracts entities.
-
-    Input (from state)
-    ------------------
-    messages : list  Latest conversation messages.
-
-    Output
-    ------
-    TriageResult
-        Structured classification result with intent, confidence, entities, reasoning.
-
-    Model configuration
-    -------------------
-    Uses ``gemini-3.5-flash`` (cheap, fast, deterministic at temperature=0.0)
-    because classification does not require the reasoning depth of Pro.
-    """
     trace = _trace_id(state)
     user_msg = _latest_user_message(state)
 
@@ -278,8 +284,9 @@ def run_triage_agent(state: AgentState) -> TriageResult:
     cfg = get_config()
     system_prompt = cfg.get_agent_prompt("triage_agent")
 
-    # Use flash for triage — fast and cheap for classification
-    llm = _build_llm("triage_agent", model_override="gemini-1.5-flash")
+    # Build standard LLM, then bind the Pydantic model for structured output
+    llm = _build_llm("triage_agent", model_override="gemini-3.5-flash")
+    structured_llm = llm.with_structured_output(TriageResult)
 
     prompt_messages = [
         SystemMessage(content=system_prompt),
@@ -289,14 +296,19 @@ def run_triage_agent(state: AgentState) -> TriageResult:
     logger.info("[%s] Triage Agent processing: '%s'", trace, user_msg[:80])
 
     @_llm_retry
-    def _call() -> str:
-        ai_msg = llm.invoke(prompt_messages)
-        if isinstance(ai_msg, str):
-            return ai_msg
-        return ai_msg.content if isinstance(ai_msg.content, str) else str(ai_msg.content)
+    def _call() -> TriageResult:
+        return structured_llm.invoke(prompt_messages)
 
-    raw_output = _call()
-    result = _parse_triage_json(raw_output)
+    try:
+        result = _call()
+    except Exception as exc:
+        logger.warning("[%s] Triage Agent structured parse failed (%s); defaulting to 'unknown'.", trace, exc)
+        result = TriageResult(
+            intent=IntentLabel.UNKNOWN,
+            confidence=0.0,
+            extracted_entities=ExtractedEntities(urgency=UrgencyLevel.MEDIUM),
+            reasoning="Failed to parse triage agent output.",
+        )
 
     logger.info(
         "[%s] Triage result: intent=%s, confidence=%.2f, customer_id=%s",
@@ -306,7 +318,6 @@ def run_triage_agent(state: AgentState) -> TriageResult:
         result.extracted_entities.customer_id,
     )
     return result
-
 
 # ===========================================================================
 # Agent 2 — Technical Support Agent
@@ -355,8 +366,12 @@ def run_technical_support_agent(state: AgentState) -> AgentResponse:
         return llm_with_tools.invoke(messages)
 
     ai_msg = _call()
-    response_content = ai_msg.content if isinstance(ai_msg.content, str) else str(ai_msg.content)
-
+    
+    # Safely parse content to avoid "[]" strings when Gemini uses tools
+    if isinstance(ai_msg.content, list) and not ai_msg.content:
+        response_content = ""
+    else:
+        response_content = ai_msg.content if isinstance(ai_msg.content, str) else str(ai_msg.content)
     # ---- Extract source citations from response ----
     # The agent is instructed to list source IDs in a "Sources:" section
     source_ids: list[str] = []
@@ -407,7 +422,8 @@ def run_technical_support_agent(state: AgentState) -> AgentResponse:
         target_agent=target_agent if needs_handover else None,
         handover_reason=handover_reason,
         source_documents=source_ids,
-        metadata={"trace_id": trace},
+        # ADD tool_calls HERE
+        metadata={"trace_id": trace, "tool_calls": getattr(ai_msg, "tool_calls", [])}, 
     )
 
 
@@ -476,8 +492,12 @@ def run_billing_agent(state: AgentState) -> AgentResponse:
         return llm_with_tools.invoke(messages)
 
     ai_msg = _call()
-    response_content = ai_msg.content if isinstance(ai_msg.content, str) else str(ai_msg.content)
-
+    
+    # Safely parse content to avoid "[]" strings when Gemini uses tools
+    if isinstance(ai_msg.content, list) and not ai_msg.content:
+        response_content = ""
+    else:
+        response_content = ai_msg.content if isinstance(ai_msg.content, str) else str(ai_msg.content)
     # ---- Detect handover signals ----
     needs_handover = False
     target_agent: AgentName | None = None
@@ -516,7 +536,8 @@ def run_billing_agent(state: AgentState) -> AgentResponse:
         needs_handover=needs_handover,
         target_agent=target_agent if needs_handover else None,
         handover_reason=handover_reason,
-        metadata={"trace_id": trace, "customer_id": customer_id},
+        # ADD tool_calls HERE
+        metadata={"trace_id": trace, "customer_id": customer_id, "tool_calls": getattr(ai_msg, "tool_calls", [])},
     )
 
 
@@ -607,30 +628,8 @@ def _build_escalation_package(
 
 
 def run_escalation_agent(state: AgentState) -> AgentResponse:
-    """
-    Escalation Agent — summarises conversation and generates a handover package.
-
-    Input (from state)
-    ------------------
-    messages       : list  Full conversation history.
-    entities       : dict  All entities extracted during the session.
-    trace_id       : str   Session trace identifier.
-    handover_count : int   How many handovers have occurred.
-
-    Output
-    ------
-    AgentResponse
-        ``content`` holds the JSON-serialised ``EscalationPackage``.
-        ``needs_handover`` is always False — escalation is the terminal node.
-        ``metadata["escalation_package"]`` holds the parsed ``EscalationPackage``
-        as a dict for Stage 5 graph state updates.
-
-    The agent formats the full conversation history into a readable transcript
-    and injects the trace_id and session context into the prompt so the handover
-    package is fully self-contained for a human operator.
-    """
     trace = _trace_id(state)
-    history = _format_history(state, max_turns=20)  # full history for summary
+    history = _format_history(state, max_turns=20) 
 
     # Build human-readable transcript for the LLM
     transcript_lines: list[str] = []
@@ -669,7 +668,12 @@ def run_escalation_agent(state: AgentState) -> AgentResponse:
         f"--- CONVERSATION TRANSCRIPT ---\n{transcript}\n--- END TRANSCRIPT ---"
     )
 
+    # 1. Define llm first
     llm = _build_llm("escalation_agent")
+    
+    # 2. Then bind structured output
+    structured_llm = llm.with_structured_output(EscalationPackage)
+    
     messages = [
         SystemMessage(content=full_prompt),
         HumanMessage(content=user_content),
@@ -678,14 +682,34 @@ def run_escalation_agent(state: AgentState) -> AgentResponse:
     logger.info("[%s] Escalation Agent generating handover package.", trace)
 
     @_llm_retry
-    def _call():
-        return llm.invoke(messages)
+    def _call() -> EscalationPackage:
+        return structured_llm.invoke(messages)
 
-    ai_msg = _call()
-    raw_output = ai_msg.content if isinstance(ai_msg.content, str) else str(ai_msg.content)
+    try:
+        package = _call()
+    except Exception as exc:
+        logger.warning("[%s] Escalation Agent structured parse failed (%s) — using safe fallback.", trace, exc)
+        
+        entities_raw = state.get("entities") or {}
+        if isinstance(entities_raw, dict):
+            try:
+                entities = ExtractedEntities.model_validate(entities_raw)
+            except Exception:
+                entities = ExtractedEntities()
+        else:
+            entities = entities_raw if isinstance(entities_raw, ExtractedEntities) else ExtractedEntities()
 
-    # Parse into typed EscalationPackage
-    package = _build_escalation_package(raw_output, state, trace)
+        package = EscalationPackage(
+            priority=EscalationPriority.P3_MEDIUM,
+            summary_bullets=["Unable to parse escalation package — manual review required."],
+            core_issue="Unresolved customer issue; escalation package generation failed.",
+            recommended_team=RecommendedTeam.SENIOR_SUPPORT,
+            extracted_entities=entities,
+            full_trace_id=trace,
+            session_id=state.get("session_id", str(uuid.uuid4())),
+            estimated_resolution_time="2–4 business hours",
+        )
+
     package_json = package.model_dump_json(indent=2)
 
     logger.info(
@@ -705,7 +729,7 @@ def run_escalation_agent(state: AgentState) -> AgentResponse:
             f"**Priority:** {package.priority.value}\n\n"
             f"---\n*Internal handover package (not shown to customer):*\n```json\n{package_json}\n```"
         ),
-        needs_handover=False,          # Escalation is always the terminal node
+        needs_handover=False,
         target_agent=None,
         metadata={
             "trace_id": trace,
@@ -714,7 +738,6 @@ def run_escalation_agent(state: AgentState) -> AgentResponse:
             "recommended_team": package.recommended_team.value,
         },
     )
-
 
 # ===========================================================================
 # Convenience registry — used by Stage 5 LangGraph to dispatch to the right fn

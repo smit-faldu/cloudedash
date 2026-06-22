@@ -495,6 +495,7 @@ def build_graph(
         {
             NODE_BILLING:    NODE_BILLING,
             NODE_ESCALATION: NODE_ESCALATION,
+            "tools":         "tools",
             END:             END,
         },
     )
@@ -505,6 +506,7 @@ def build_graph(
         {
             NODE_TECHNICAL:  NODE_TECHNICAL,
             NODE_ESCALATION: NODE_ESCALATION,
+            "tools":         "tools",
             END:             END,
         },
     )

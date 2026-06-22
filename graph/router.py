@@ -156,6 +156,12 @@ def route_after_specialist(state: dict[str, Any]) -> str:
         The name of the next node, or ``END``.
     """
     trace = _trace(state)
+    
+    # --- Check for tool calls FIRST ---
+    messages = state.get("messages", [])
+    if messages and hasattr(messages[-1], "tool_calls") and messages[-1].tool_calls:
+        logger.info("[%s] Tool calls detected → routing to 'tools'.", trace)
+        return "tools"
     handover_count = state.get("handover_count", 0)
     is_escalated = state.get("is_escalated", False)
     error = state.get("error")

@@ -656,3 +656,32 @@ class TestFormatHistory:
     def test_latest_user_message_empty_state(self):
         from agents.agent_nodes import _latest_user_message
         assert _latest_user_message({"messages": []}) == ""
+
+    def test_format_history_supports_lc_objects(self):
+        from agents.agent_nodes import _format_history
+        from langchain_core.messages import HumanMessage, AIMessage
+        state = {
+            "messages": [
+                HumanMessage(content="Hello from human"),
+                AIMessage(content="Hi from AI"),
+            ]
+        }
+        result = _format_history(state)
+        assert len(result) == 2
+        assert isinstance(result[0], HumanMessage)
+        assert result[0].content == "Hello from human"
+        assert isinstance(result[1], AIMessage)
+        assert result[1].content == "Hi from AI"
+
+    def test_latest_user_message_supports_lc_objects(self):
+        from agents.agent_nodes import _latest_user_message
+        from langchain_core.messages import HumanMessage, AIMessage
+        state = {
+            "messages": [
+                HumanMessage(content="First question"),
+                AIMessage(content="Answer"),
+                HumanMessage(content="Follow-up question"),
+            ]
+        }
+        result = _latest_user_message(state)
+        assert result == "Follow-up question"
