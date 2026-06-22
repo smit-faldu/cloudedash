@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>CloudDash — Expert Escalation Desk</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-gray-100 font-sans h-screen flex overflow-hidden">
+
+  <aside class="w-80 bg-gray-950 border-r border-white/10 flex flex-col p-4">
+    <h2 class="text-lg font-semibold text-white mb-4">Escalation Desk</h2>
+    <div class="mb-4">
+      <label class="block text-xs text-gray-400 mb-1">Load Session ID</label>
+      <input type="text" id="session-input" placeholder="Paste session ID here..." 
+             class="w-full bg-gray-800 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand-500 text-white">
+      <button id="load-btn" class="w-full mt-2 bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-2 rounded-lg text-sm transition-all">
+        Load Conversation
+      </button>
+    </div>
+    
+    <div id="meta-card" class="hidden bg-gray-800/50 rounded-lg p-3 text-sm space-y-2 border border-white/5">
+      <p><span class="text-gray-400">Intent:</span> <span id="meta-intent" class="text-indigo-400 font-mono"></span></p>
+      <p><span class="text-gray-400">Escalated:</span> <span id="meta-escalated" class="text-orange-400 font-mono"></span></p>
+      <p><span class="text-gray-400">Handovers:</span> <span id="meta-handovers" class="text-gray-200"></span></p>
+    </div>
+  </aside>
+
+  <main class="flex-1 flex flex-col bg-gray-900">
+    <header class="h-14 border-b border-white/5 flex items-center px-6 bg-gray-900/80">
+      <h1 class="font-medium text-gray-200">Live Customer View</h1>
+    </header>
+    
+    <div id="chat-history" class="flex-1 overflow-y-auto p-6 space-y-4">
+      <div class="text-center text-gray-500 text-sm mt-10">Load a session to view history.</div>
+    </div>
+
+    <div class="p-4 bg-gray-950 border-t border-white/10">
+      <div class="flex gap-2">
+        <textarea id="expert-input" rows="2" placeholder="Type your expert response here..." 
+                  class="flex-1 bg-gray-800 border border-white/10 rounded-xl px-4 py-3 text-sm text-white resize-none focus:outline-none focus:border-indigo-500"></textarea>
+        <button id="send-btn" class="bg-indigo-600 hover:bg-indigo-500 px-6 rounded-xl font-medium transition-all disabled:opacity-50">
+          Send Reply
+        </button>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    const API_BASE = window.location.origin === 'null' || !window.location.origin 
+                     ? 'http://127.0.0.1:8000' : window.location.origin;
+    
+    let currentSessionId = null;
+
+    // Load History
+    document.getElementById('load-btn').addEventListener('click', async () => {
+      const sid = document.getElementById('session-input').value.trim();
+      if (!sid) return;
+      currentSessionId = sid;
+      
+      const res = await fetch(`${API_BASE}/history?session_id=${encodeURIComponent(sid)}`);
+      const data = await res.json();
+      
+      const chatBox = document.getElementById('chat-history');
+      chatBox.innerHTML = '';
+      
+      // Update Meta
+      document.getElementById('meta-card').classList.remove('hidden');
+      document.getElementById('meta-intent').textContent = data.intent || 'Unknown';
+      document.getElementById('meta-escalated').textContent = data.is_escalated ? 'Yes' : 'No';
+      document.getElementById('meta-handovers').textContent = data.handover_count;
+
+      // Render Messages
+      data.messages.forEach(msg => {
+        const div = document.createElement('div');
+        const isUser = msg.role === 'user';
+        const isExpert = msg.role === 'human_expert';
+        
+        // Differentiate colors: User (Gray), AI Agents (Indigo), Human Expert (Green)
+        let bgClass = isUser ? 'bg-gray-800' : (isExpert ? 'bg-emerald-600' : 'bg-indigo-600');
+        let align = isUser ? 'text-right' : 'text-left';
+
+        div.className = `max-w-[70%] p-3 rounded-xl text-sm ${bgClass} ${isUser ? 'ml-auto' : 'mr-auto'} mb-2`;
+        div.innerHTML = `<div class="text-xs text-white/60 mb-1 uppercase tracking-wider">${msg.role}</div><div>${msg.content}</div>`;
+        chatBox.appendChild(div);
+      });
+      chatBox.scrollTop = chatBox.scrollHeight;
+    });
+
+    // Send Expert Reply
+    document.getElementById('send-btn').addEventListener('click', async () => {
+      if (!currentSessionId) return alert('Load a session first.');
+      const input = document.getElementById('expert-input');
+      const text = input.value.trim();
+      if (!text) return;
+      
+      document.getElementById('send-btn').disabled = true;
+      
+      await fetch(`${API_BASE}/expert/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_id: currentSessionId, message: text })
+      });
+      
+      input.value = '';
+      document.getElementById('send-btn').disabled = false;
+      
+      // Refresh view to see our new message
+      document.getElementById('load-btn').click();
+    });
+  </script>
+</body>
+</html>

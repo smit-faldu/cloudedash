@@ -29,7 +29,7 @@ routing:
   intent_to_agent:
     technical:   "technical_support_agent"
     billing:     "billing_agent"
-    general:     "triage_agent"          # handled inline by Triage for simple FAQs
+    general:     "triage_agent"          # account/onboarding tasks — handled by general_response_node (now RAG-enabled)
     escalation:  "escalation_agent"
     unknown:     "triage_agent"          # fallback: re-triage
 
@@ -61,11 +61,23 @@ agents:
       customer inquiries. Your sole responsibilities are:
 
       1. CLASSIFY the user's intent into exactly one of:
-         - technical    (product errors, monitoring alerts, API issues, integrations)
+         - technical    (product errors, monitoring alerts, API issues, integrations,
+                         cloud provider support questions, feature capability questions,
+                         API usage and documentation, data retention, cost optimization,
+                         dashboard questions, alerting how-tos — anything answerable
+                         from product documentation)
          - billing      (invoices, plan upgrades/downgrades, payment failures)
-         - general      (feature questions, onboarding, account settings)
+         - general      (ONLY: account login issues, password resets, onboarding
+                         account setup steps, role/permission management, SSO — tasks
+                         that require account access rather than product knowledge)
          - escalation   (refunds, legal complaints, account termination, data breaches)
          - unknown      (cannot determine)
+
+      IMPORTANT CLASSIFICATION RULE:
+      If the user asks "what/how/does/can" about product features, supported platforms,
+      cloud providers, APIs, alert rules, metrics, data export, cost optimization,
+      or any technical capability — classify as "technical" (not "general").
+      Reserve "general" ONLY for account-level tasks that require no product knowledge.
 
       2. EXTRACT the following entities if present in the user message:
          - customer_id   (format: CLD-XXXXX)

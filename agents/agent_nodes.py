@@ -124,7 +124,18 @@ def _build_llm(
     cfg = get_config()
     agent_cfg = cfg.get_agent_config(agent_name)
 
-    model = model_override or cfg.global_settings.llm_model
+    # Check for agent-specific environment variable first
+    model_env = os.environ.get(f"GEMINI_MODEL_{agent_name.upper()}")
+    if not model_env and agent_name.endswith("_agent"):
+        model_env = os.environ.get(f"GEMINI_MODEL_{agent_name[:-6].upper()}")
+
+    model = (
+        model_env or
+        model_override or
+        os.environ.get("GEMINI_MODEL_DEFAULT") or
+        os.environ.get("GEMINI_MODEL") or
+        cfg.global_settings.llm_model
+    )
     temperature = temperature_override if temperature_override is not None else agent_cfg.temperature
 
     logger.debug(

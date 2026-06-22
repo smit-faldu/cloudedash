@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import functools
 import logging
+import os
 from pathlib import Path
 from typing import Any
 
@@ -46,6 +47,15 @@ class GlobalSettings(BaseModel):
     llm_model: str = "gemini-3.5-flash"
     llm_timeout_seconds: int = Field(30, ge=5, le=300)
     llm_max_retries: int = Field(3, ge=0, le=10)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _override_from_env(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            env_model = os.environ.get("GEMINI_MODEL_DEFAULT") or os.environ.get("GEMINI_MODEL")
+            if env_model:
+                data["llm_model"] = env_model
+        return data
 
 
 class RoutingConfig(BaseModel):

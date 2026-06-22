@@ -339,8 +339,16 @@ def _llm_judge(
         from langchain_google_genai import ChatGoogleGenerativeAI
         from langchain_core.messages import HumanMessage
 
+        model = (
+            os.environ.get("GEMINI_MODEL_LLM_JUDGE") or
+            os.environ.get("GEMINI_MODEL_JUDGE") or
+            os.environ.get("GEMINI_MODEL_DEFAULT") or
+            os.environ.get("GEMINI_MODEL") or
+            "gemini-3.5-flash"
+        )
+
         judge_llm = ChatGoogleGenerativeAI(
-            model="gemini-3.5-flash",
+            model=model,
             google_api_key=api_key,
             temperature=0.0,
             max_retries=2,

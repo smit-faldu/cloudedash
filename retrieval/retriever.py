@@ -233,8 +233,16 @@ def rewrite_query(
             import os
             from langchain_google_genai import ChatGoogleGenerativeAI
 
+            model = (
+                os.environ.get("GEMINI_MODEL_QUERY_REWRITE") or
+                os.environ.get("GEMINI_MODEL_REWRITE") or
+                os.environ.get("GEMINI_MODEL_DEFAULT") or
+                os.environ.get("GEMINI_MODEL") or
+                "gemini-3.5-flash"
+            )
+
             llm = ChatGoogleGenerativeAI(
-                model="gemini-3.5-flash",   # cheap, fast model for rewriting
+                model=model,
                 google_api_key=os.environ["GEMINI_API_KEY"],
                 temperature=0.0,
             )

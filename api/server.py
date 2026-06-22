@@ -77,6 +77,8 @@ from utils.logger import (
     log_agent_start,
     log_guardrail_triggered,
 )
+from pydantic import BaseModel
+from langchain_core.messages import AIMessage
 
 logger = get_logger(__name__)
 
@@ -456,6 +458,53 @@ async def history(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Could not retrieve session history.",
         )
+        
+# --- 1. Schema for the Expert's Reply ---
+class ExpertChatRequest(BaseModel):
+    session_id: str
+    message: str
+
+# --- 2. Serve the new Escalation Dashboard ---
+@app.get(
+    "/escalation-desk",
+    response_class=FileResponse,
+    tags=["Frontend"],
+    summary="Serve the Human-in-the-Loop Escalation Dashboard",
+)
+async def serve_escalation_frontend() -> FileResponse:
+    frontend_path = _PROJECT_ROOT / "frontend" / "escalation.html"
+    if not frontend_path.exists():
+        raise HTTPException(status_code=404, detail="escalation.html not found.")
+    return FileResponse(frontend_path)
+
+# --- 3. Endpoint for the Human Expert to reply ---
+@app.post(
+    "/expert/chat",
+    tags=["HITL"],
+    summary="Inject a human expert's message into the session state"
+)
+async def expert_chat(
+    body: ExpertChatRequest,
+    graph=Depends(get_compiled_graph)
+):
+    """
+    Directly injects a message from the human expert into the LangGraph state.
+    This bypasses the AI agents and appends the message to the thread history.
+    """
+    config = {"configurable": {"thread_id": body.session_id}}
+    
+    # 1. Verify the session actually exists in the checkpointer
+    state_snapshot = graph.get_state(config)
+    if not state_snapshot.values:
+        raise HTTPException(status_code=404, detail="Session not found.")
+        
+    # 2. Create the message. We use AIMessage but tag it with the human expert's name
+    expert_msg = AIMessage(content=body.message, name="human_expert")
+    
+    # 3. Inject it directly into the graph's state memory
+    graph.update_state(config, {"messages": [expert_msg]})
+    
+    return {"status": "success", "message": "Expert reply sent to customer."}
 
 
 # ===========================================================================

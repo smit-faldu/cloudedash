@@ -95,6 +95,10 @@ from graph.state import GraphState
 from models.models import AgentName, IntentLabel, MessageRole
 from tools.agent_tools import ALL_TOOLS
 
+import os
+from langchain_core.messages import SystemMessage, HumanMessage
+from langchain_google_genai import ChatGoogleGenerativeAI
+from agents.agent_nodes import _latest_user_message, _format_history
 logger = logging.getLogger(__name__)
 
 
@@ -381,39 +385,120 @@ def escalation_node(state: GraphState) -> dict[str, Any]:
 
 def general_response_node(state: GraphState) -> dict[str, Any]:
     """
-    Lightweight node for ``intent=general`` (onboarding, FAQ, account settings).
+    Node for ``intent=general`` (account settings, onboarding, role management,
+    password/SSO — things that require account knowledge rather than product docs).
 
-    Rather than calling a specialist, the Triage Agent can answer simple
-    general questions inline.  In Stage 6 this will call the LLM with the
-    triage system prompt. For now it returns a placeholder that the Stage 5
-    tests can validate.
+    For any question that *could* be answered from the KB, this node first
+    attempts a RAG search and falls back to a general LLM answer only when
+    the index returns nothing useful.
 
     State updates returned
     ----------------------
-    messages        : Appends a placeholder AI message.
-    current_agent   : Set to "triage_agent" (Triage answered the question).
-    last_agent_response : Minimal AgentResponse dict (no handover).
+    messages        : Appends an AIMessage with the agent response.
+    current_agent   : Set to "triage_agent".
+    last_agent_response : AgentResponse dict (no handover unless unresolvable).
     """
-    trace = state.get("trace_id", "unknown")
-    logger.info("[%s] → General response node executing.", trace)
 
-    # In Stage 6, this will be replaced with a real LLM call using the
-    # triage system prompt (temperature 0.3 for general questions).
-    ai_msg = AIMessage(
-        content=(
+    trace = state.get("trace_id", "unknown")
+    logger.info("[%s] → General response node executing (RAG-enabled).", trace)
+
+    user_msg = _latest_user_message(state)
+    history = _format_history(state)
+
+    # ------------------------------------------------------------------
+    # Step 1: try RAG — search the KB in case this is answerable from docs
+    # ------------------------------------------------------------------
+    kb_context = ""
+    try:
+        from tools.agent_tools import search_technical_knowledge_base
+        kb_result = search_technical_knowledge_base.invoke({"query": user_msg})
+        if kb_result and "No relevant articles" not in kb_result and "ERROR" not in kb_result:
+            kb_context = f"\n\nRELEVANT KNOWLEDGE BASE ARTICLES:\n{kb_result}"
+            logger.info("[%s] General node: KB returned results; injecting into prompt.", trace)
+        else:
+            logger.info("[%s] General node: KB returned no results; using LLM-only answer.", trace)
+    except Exception as kb_exc:
+        logger.warning("[%s] General node: KB search failed (%s); proceeding without.", trace, kb_exc)
+
+    # ------------------------------------------------------------------
+    # Step 2: Build LLM prompt
+    # ------------------------------------------------------------------
+    api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+    if not api_key:
+        logger.error("[%s] General node: No Gemini API key — returning fallback.", trace)
+        ai_msg = AIMessage(
+            content=(
+                "Thank you for contacting CloudDash support. "
+                "I can help you with questions about the platform. "
+                "Could you provide more details about what you need?"
+            ),
+            name="triage_agent",
+        )
+        return {
+            "messages": [ai_msg],
+            "current_agent": NODE_TRIAGE,
+            "last_agent_response": {
+                "agent_name": NODE_TRIAGE,
+                "content": ai_msg.content,
+                "needs_handover": False,
+                "target_agent": None,
+            },
+            "error": None,
+        }
+
+    from config.config_loader import get_config
+    cfg = get_config()
+
+    system_prompt = (
+        "You are a helpful CloudDash support assistant. "
+        "Answer the customer's question accurately and concisely. "
+        "If knowledge base articles are provided below, use them as your primary "
+        "source and cite the article IDs (e.g. FAQ-001) in a 'Sources:' section. "
+        "If no articles are provided or they are insufficient, answer from general "
+        "knowledge about the CloudDash platform. "
+        "Keep the tone professional and friendly."
+        + kb_context
+    )
+
+    try:
+        llm = ChatGoogleGenerativeAI(
+            model=cfg.global_settings.llm_model,
+            google_api_key=api_key,
+            temperature=0.3,
+            max_retries=cfg.global_settings.llm_max_retries,
+            timeout=cfg.global_settings.llm_timeout_seconds,
+        )
+
+        prompt_messages = [SystemMessage(content=system_prompt)] + history
+        ai_response = llm.invoke(prompt_messages)
+
+        # Extract text content (handles list vs string Gemini responses)
+        if isinstance(ai_response.content, list):
+            content = "".join(
+                part if isinstance(part, str) else part.get("text", "")
+                for part in ai_response.content
+            ).strip()
+        else:
+            content = str(ai_response.content).strip()
+
+        logger.info("[%s] General node: LLM response generated (%d chars).", trace, len(content))
+
+    except Exception as llm_exc:
+        logger.error("[%s] General node: LLM call failed (%s).", trace, llm_exc)
+        content = (
             "Thank you for contacting CloudDash support. "
             "I can help you with general questions about the platform. "
             "Could you provide more details about what you need?"
-        ),
-        name="triage_agent",
-    )
+        )
+
+    ai_msg = AIMessage(content=content, name="triage_agent")
 
     return {
         "messages": [ai_msg],
         "current_agent": NODE_TRIAGE,
         "last_agent_response": {
             "agent_name": NODE_TRIAGE,
-            "content": ai_msg.content,
+            "content": content,
             "needs_handover": False,
             "target_agent": None,
         },
