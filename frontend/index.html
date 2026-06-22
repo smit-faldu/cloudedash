@@ -228,6 +228,7 @@
     // -----------------------------------------------------------------------
     let sessionId = localStorage.getItem('clouddash_session_id') || crypto.randomUUID();
     let isLoading = false;
+    let isEscalated = false;  // true once session is locked to human operator
     let turnCount  = 0;
 
     // Persist session ID so page refresh continues the same conversation
@@ -244,6 +245,7 @@
       technical_support_agent: { label: 'Technical Support', css: 'badge-technical' },
       billing_agent:           { label: 'Billing',          css: 'badge-billing' },
       escalation_agent:        { label: 'Escalation',       css: 'badge-escalation' },
+      human_handoff:           { label: '🧑 Human Support', css: 'badge-escalation' },
       guardrail:               { label: 'Safety Filter',    css: 'badge-guardrail' },
       guardrail_escalation:    { label: 'Safety Filter',    css: 'badge-guardrail' },
       assistant:               { label: 'Assistant',        css: 'badge-system' },
@@ -295,10 +297,35 @@
 
     function setLoading(loading) {
       isLoading = loading;
-      sendBtn.disabled = loading;
-      msgInput.disabled = loading;
+      // Keep UI locked if escalated — don't re-enable input for agents
+      if (!isEscalated) {
+        sendBtn.disabled = loading;
+        msgInput.disabled = loading;
+      }
       sendIcon.classList.toggle('hidden', loading);
       sendSpinner.classList.toggle('hidden', !loading);
+    }
+
+    function enterHumanMode() {
+      if (isEscalated) return; // already locked
+      isEscalated = true;
+      // Lock the input area
+      msgInput.disabled = true;
+      msgInput.placeholder = 'Chat locked — awaiting human support agent…';
+      sendBtn.disabled = true;
+      // Update status indicator
+      setStatus('Human Support', 'amber');
+      // Show a persistent banner above the input
+      const banner = document.createElement('div');
+      banner.id = 'human-mode-banner';
+      banner.className = 'flex items-center gap-2 px-4 py-3 bg-orange-500/10 border-t border-orange-500/20 text-orange-300 text-sm';
+      banner.innerHTML = `
+        <svg class="w-4 h-4 flex-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+        </svg>
+        <span><strong>Transferred to Human Support.</strong> A support agent will reach out via your registered email. This chat is now read-only.</span>`;
+      const form = document.getElementById('chat-form');
+      form.parentNode.insertBefore(banner, form);
     }
 
     function setStatus(text, colour = 'emerald') {
@@ -398,6 +425,11 @@
         </div>`;
       chatWindow.appendChild(wrapper);
       scrollToBottom();
+
+      // Lock the UI if this response triggered escalation
+      if (data.is_escalated) {
+        enterHumanMode();
+      }
     }
 
     // -----------------------------------------------------------------------
@@ -424,7 +456,7 @@
     // Core: send message to API
     // -----------------------------------------------------------------------
     async function sendMessage(text) {
-      if (!text.trim() || isLoading) return;
+      if (!text.trim() || isLoading || isEscalated) return;
 
       appendUserMessage(text);
       const typingEl = appendTypingIndicator();
@@ -537,6 +569,14 @@
       chatWindow.appendChild(welcomeCard);
       welcomeCard.classList.remove('hidden');
       turnCount = 0;
+
+      // Reset human-mode state
+      isEscalated = false;
+      msgInput.disabled = false;
+      msgInput.placeholder = 'Message CloudDash Support…';
+      sendBtn.disabled = false;
+      document.getElementById('human-mode-banner')?.remove();
+
       setStatus('Online', 'emerald');
     });
 
@@ -561,12 +601,16 @@
               agent: msg.role,
               intent: null,
               confidence: null,
-              is_escalated: false,
+              is_escalated: false,   // suppress per-bubble lock during replay
               guardrail_triggered: false,
               handover_count: 0,
             });
           }
         });
+        // Restore human-mode lock if the session was previously escalated
+        if (data.is_escalated) {
+          enterHumanMode();
+        }
         scrollToBottom(false);
       } catch {
         // History not available — start fresh; no error shown

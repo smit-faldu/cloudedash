@@ -77,8 +77,6 @@ from utils.logger import (
     log_agent_start,
     log_guardrail_triggered,
 )
-from pydantic import BaseModel
-from langchain_core.messages import AIMessage
 
 logger = get_logger(__name__)
 
@@ -297,7 +295,42 @@ async def chat(
         )
 
     # ------------------------------------------------------------------
-    # Step 2 — LangGraph invocation
+    # Step 2 — Check if session is already escalated to a human
+    # ------------------------------------------------------------------
+    config = {"configurable": {"thread_id": session_id}}
+    try:
+        prev_snapshot = graph.get_state(config)
+        prev_values = prev_snapshot.values if prev_snapshot else {}
+        already_escalated = prev_values.get("is_escalated", False)
+    except Exception:
+        already_escalated = False
+
+    if already_escalated:
+        # Session is locked to human operator — do NOT re-enter the agent graph.
+        # Any further messages go directly to the human queue; bots don't intercept.
+        logger.info(
+            "Session %s is already escalated — bypassing agent graph for human-mode reply.",
+            session_id,
+        )
+        return ChatResponse(
+            session_id=session_id,
+            trace_id=trace_id,
+            response=(
+                "Your conversation has been handed off to our human support team and "
+                "they are reviewing your case. Please wait for their response — "
+                "no agents will intervene in this thread. If this is urgent, "
+                "email us directly at support@clouddash.io with your reference ID: "
+                f"**{prev_values.get('trace_id', trace_id)}**."
+            ),
+            agent="human_handoff",
+            intent=prev_values.get("intent"),
+            confidence=prev_values.get("confidence"),
+            is_escalated=True,
+            handover_count=prev_values.get("handover_count", 0),
+        )
+
+    # ------------------------------------------------------------------
+    # Step 3 — LangGraph invocation
     # ------------------------------------------------------------------
     try:
         initial_state = create_initial_state(
@@ -306,9 +339,6 @@ async def chat(
             customer_id=body.customer_id,
             trace_id=trace_id,
         )
-
-        # LangGraph config: thread_id = session_id for checkpointer persistence
-        config = {"configurable": {"thread_id": session_id}}
 
         final_state: dict[str, Any] = graph.invoke(initial_state, config=config)
 
@@ -329,7 +359,7 @@ async def chat(
         )
 
     # ------------------------------------------------------------------
-    # Step 3 — Output guardrail
+    # Step 4 — Output guardrail
     # ------------------------------------------------------------------
     response_text, agent_name = _extract_response(final_state)
     source_doc_ids = _extract_source_doc_ids(final_state)
@@ -355,7 +385,7 @@ async def chat(
         agent_name = "guardrail_escalation"
 
     # ------------------------------------------------------------------
-    # Step 4 — Build response
+    # Step 5 — Build response
     # ------------------------------------------------------------------
     duration_ms = round((time.monotonic() - t_start) * 1000, 1)
     log_agent_end(
@@ -458,53 +488,6 @@ async def history(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Could not retrieve session history.",
         )
-        
-# --- 1. Schema for the Expert's Reply ---
-class ExpertChatRequest(BaseModel):
-    session_id: str
-    message: str
-
-# --- 2. Serve the new Escalation Dashboard ---
-@app.get(
-    "/escalation-desk",
-    response_class=FileResponse,
-    tags=["Frontend"],
-    summary="Serve the Human-in-the-Loop Escalation Dashboard",
-)
-async def serve_escalation_frontend() -> FileResponse:
-    frontend_path = _PROJECT_ROOT / "frontend" / "escalation.html"
-    if not frontend_path.exists():
-        raise HTTPException(status_code=404, detail="escalation.html not found.")
-    return FileResponse(frontend_path)
-
-# --- 3. Endpoint for the Human Expert to reply ---
-@app.post(
-    "/expert/chat",
-    tags=["HITL"],
-    summary="Inject a human expert's message into the session state"
-)
-async def expert_chat(
-    body: ExpertChatRequest,
-    graph=Depends(get_compiled_graph)
-):
-    """
-    Directly injects a message from the human expert into the LangGraph state.
-    This bypasses the AI agents and appends the message to the thread history.
-    """
-    config = {"configurable": {"thread_id": body.session_id}}
-    
-    # 1. Verify the session actually exists in the checkpointer
-    state_snapshot = graph.get_state(config)
-    if not state_snapshot.values:
-        raise HTTPException(status_code=404, detail="Session not found.")
-        
-    # 2. Create the message. We use AIMessage but tag it with the human expert's name
-    expert_msg = AIMessage(content=body.message, name="human_expert")
-    
-    # 3. Inject it directly into the graph's state memory
-    graph.update_state(config, {"messages": [expert_msg]})
-    
-    return {"status": "success", "message": "Expert reply sent to customer."}
 
 
 # ===========================================================================
