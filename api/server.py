@@ -40,6 +40,8 @@ via a local dev server).
 
 from __future__ import annotations
 
+import json
+import os
 import sys
 import time
 import uuid
@@ -637,6 +639,101 @@ async def expert_chat(
         raise HTTPException(status_code=500, detail="Could not save expert reply.")
 
     return JSONResponse(content={"ok": True, "session_id": session_id})
+
+
+# ---------------------------------------------------------------------------
+# GET /dev/db  — inspect database tables
+# ---------------------------------------------------------------------------
+
+
+@app.get(
+    "/dev/db",
+    tags=["Development"],
+    summary="Retrieve all database records for dev inspection",
+)
+async def dev_db() -> JSONResponse:
+    """
+    Returns users, subscriptions, and invoices records from the SQLite database.
+    Used for dev and testing inspection.
+    """
+    from database.db_setup import get_connection, DEFAULT_DB_PATH
+
+    env_override = os.environ.get("CLOUDDASH_DB_PATH")
+    db_path = Path(env_override) if env_override else DEFAULT_DB_PATH
+
+    try:
+        conn = get_connection(db_path)
+        try:
+            users = [dict(r) for r in conn.execute("SELECT * FROM users").fetchall()]
+            subscriptions = [dict(r) for r in conn.execute("SELECT * FROM subscriptions").fetchall()]
+            invoices = [dict(r) for r in conn.execute("SELECT * FROM invoices").fetchall()]
+            return JSONResponse(
+                content={
+                    "users": users,
+                    "subscriptions": subscriptions,
+                    "invoices": invoices,
+                }
+            )
+        finally:
+            conn.close()
+    except Exception as exc:
+        logger.error("Dev DB lookup failed: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Database inspection error: {exc}",
+        )
+
+
+# ---------------------------------------------------------------------------
+# GET /dev/kb  — inspect knowledge base articles
+# ---------------------------------------------------------------------------
+
+
+@app.get(
+    "/dev/kb",
+    tags=["Development"],
+    summary="Retrieve all knowledge base articles with content",
+)
+async def dev_kb() -> JSONResponse:
+    """
+    Reads the index.json and retrieves the full contents of all knowledge base
+    articles from knowledge_base/articles.
+    """
+    kb_dir = _PROJECT_ROOT / "knowledge_base" / "articles"
+    index_file = kb_dir / "index.json"
+    if not index_file.exists():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Knowledge base index.json not found.",
+        )
+
+    try:
+        with open(index_file, "r", encoding="utf-8") as f:
+            articles_summary = json.load(f)
+
+        articles = []
+        for item in articles_summary:
+            art_file = kb_dir / item["file"]
+            if art_file.exists():
+                with open(art_file, "r", encoding="utf-8") as af:
+                    articles.append(json.load(af))
+            else:
+                articles.append({
+                    "id": item["id"],
+                    "category": item["category"],
+                    "title": item["title"],
+                    "tags": item.get("tags", []),
+                    "version": item.get("version", ""),
+                    "content": "Detailed article file not found.",
+                })
+
+        return JSONResponse(content={"articles": articles})
+    except Exception as exc:
+        logger.error("Dev KB lookup failed: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Knowledge base inspection error: {exc}",
+        )
 
 
 # ===========================================================================
