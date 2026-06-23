@@ -2,111 +2,341 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>CloudDash — Expert Escalation Desk</title>
+  <title>CloudDash — Escalation Desk</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: ui-sans-serif, system-ui, sans-serif; }
+    .msg-user    { background: #1f2937; margin-left: auto; }
+    .msg-agent   { background: #312e81; margin-right: auto; }
+    .msg-expert  { background: #064e3b; margin-right: auto; }
+    .msg-system  { background: #374151; margin-right: auto; }
+    #chat-box::-webkit-scrollbar { width: 6px; }
+    #chat-box::-webkit-scrollbar-track { background: transparent; }
+    #chat-box::-webkit-scrollbar-thumb { background: #374151; border-radius: 9999px; }
+    .queue-item.active { border-color: #6366f1; background: #1e1b4b; }
+    .queue-item { cursor: pointer; transition: all 0.15s; }
+    .queue-item:hover { background: #1f2937; }
+    .dot-pulse { animation: pulse 1.5s ease-in-out infinite; }
+    @keyframes pulse { 0%,100% { opacity: 0.4; } 50% { opacity: 1; } }
+  </style>
 </head>
-<body class="bg-gray-900 text-gray-100 font-sans h-screen flex overflow-hidden">
+<body class="bg-gray-900 text-gray-100 h-screen flex overflow-hidden">
 
-  <aside class="w-80 bg-gray-950 border-r border-white/10 flex flex-col p-4">
-    <h2 class="text-lg font-semibold text-white mb-4">Escalation Desk</h2>
-    <div class="mb-4">
-      <label class="block text-xs text-gray-400 mb-1">Load Session ID</label>
-      <input type="text" id="session-input" placeholder="Paste session ID here..." 
-             class="w-full bg-gray-800 border border-white/10 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand-500 text-white">
-      <button id="load-btn" class="w-full mt-2 bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-2 rounded-lg text-sm transition-all">
-        Load Conversation
+  <!-- ─── Sidebar: queue ─────────────────────────────────────────── -->
+  <aside class="w-80 bg-gray-950 border-r border-white/10 flex flex-col">
+    <div class="p-4 border-b border-white/10 flex items-center justify-between">
+      <div>
+        <h2 class="text-base font-semibold text-white">Escalation Queue</h2>
+        <p class="text-xs text-gray-400 mt-0.5">One session at a time</p>
+      </div>
+      <button id="refresh-btn" title="Refresh queue"
+              class="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-all">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round"
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+        </svg>
       </button>
     </div>
-    
-    <div id="meta-card" class="hidden bg-gray-800/50 rounded-lg p-3 text-sm space-y-2 border border-white/5">
-      <p><span class="text-gray-400">Intent:</span> <span id="meta-intent" class="text-indigo-400 font-mono"></span></p>
-      <p><span class="text-gray-400">Escalated:</span> <span id="meta-escalated" class="text-orange-400 font-mono"></span></p>
-      <p><span class="text-gray-400">Handovers:</span> <span id="meta-handovers" class="text-gray-200"></span></p>
+
+    <!-- Queue list -->
+    <div id="queue-list" class="flex-1 overflow-y-auto p-3 space-y-2">
+      <div id="queue-empty" class="text-center text-gray-500 text-sm mt-8 hidden">
+        <svg class="w-8 h-8 mx-auto mb-2 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        No escalated sessions
+      </div>
+      <div id="queue-loading" class="text-center text-gray-500 text-sm mt-8">
+        <span class="dot-pulse">Loading queue…</span>
+      </div>
+    </div>
+
+    <!-- Active session meta -->
+    <div id="session-meta" class="hidden p-3 border-t border-white/10 bg-gray-900/60 text-xs space-y-1">
+      <div class="text-gray-500 font-medium uppercase tracking-wider mb-1.5">Active Session</div>
+      <div><span class="text-gray-400">ID: </span><span id="meta-sid" class="text-indigo-300 font-mono truncate block"></span></div>
+      <div><span class="text-gray-400">Intent: </span><span id="meta-intent" class="text-gray-200"></span></div>
+      <div><span class="text-gray-400">Customer: </span><span id="meta-cid" class="text-gray-200"></span></div>
     </div>
   </aside>
 
-  <main class="flex-1 flex flex-col bg-gray-900">
-    <header class="h-14 border-b border-white/5 flex items-center px-6 bg-gray-900/80">
-      <h1 class="font-medium text-gray-200">Live Customer View</h1>
-    </header>
-    
-    <div id="chat-history" class="flex-1 overflow-y-auto p-6 space-y-4">
-      <div class="text-center text-gray-500 text-sm mt-10">Load a session to view history.</div>
-    </div>
+  <!-- ─── Main: chat ─────────────────────────────────────────────── -->
+  <main class="flex-1 flex flex-col bg-gray-900 min-w-0">
 
-    <div class="p-4 bg-gray-950 border-t border-white/10">
-      <div class="flex gap-2">
-        <textarea id="expert-input" rows="2" placeholder="Type your expert response here..." 
-                  class="flex-1 bg-gray-800 border border-white/10 rounded-xl px-4 py-3 text-sm text-white resize-none focus:outline-none focus:border-indigo-500"></textarea>
-        <button id="send-btn" class="bg-indigo-600 hover:bg-indigo-500 px-6 rounded-xl font-medium transition-all disabled:opacity-50">
-          Send Reply
-        </button>
+    <!-- Header -->
+    <header class="h-14 border-b border-white/5 flex items-center px-5 gap-3 bg-gray-900/80 flex-none">
+      <div id="header-dot" class="w-2 h-2 rounded-full bg-gray-600"></div>
+      <h1 id="header-title" class="font-medium text-gray-300 text-sm">
+        Select a session from the queue
+      </h1>
+      <div class="ml-auto">
+        <span id="header-badge" class="hidden px-2 py-0.5 rounded-full bg-orange-500/15 text-orange-400 text-xs border border-orange-500/20">
+          Escalated
+        </span>
+      </div>
+    </header>
+
+    <!-- Chat history -->
+    <div id="chat-box" class="flex-1 overflow-y-auto p-5 space-y-3">
+      <!-- Placeholder when nothing is loaded -->
+      <div id="chat-placeholder" class="flex flex-col items-center justify-center h-full text-gray-600 text-sm gap-2">
+        <svg class="w-10 h-10 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-4 4z"/>
+        </svg>
+        Pick a session to start
       </div>
     </div>
+
+    <!-- Reply bar -->
+    <div id="reply-bar" class="p-4 bg-gray-950 border-t border-white/10 flex-none">
+      <div class="flex gap-2 items-end">
+        <textarea id="expert-input" rows="2"
+                  placeholder="Select a session first…"
+                  disabled
+                  class="flex-1 bg-gray-800 border border-white/10 rounded-xl px-4 py-3 text-sm text-white
+                         resize-none focus:outline-none focus:border-indigo-500 placeholder-gray-600
+                         disabled:opacity-40 disabled:cursor-not-allowed transition-all"></textarea>
+        <button id="send-btn" disabled
+                class="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed
+                       px-5 py-3 rounded-xl font-medium text-sm transition-all flex items-center gap-2 flex-none">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+          </svg>
+          Reply
+        </button>
+      </div>
+      <p class="text-xs text-gray-600 mt-2 pl-1">
+        Your reply goes directly to the customer. The AI agent will not intervene.
+      </p>
+    </div>
+
   </main>
 
   <script>
-    const API_BASE = window.location.origin === 'null' || !window.location.origin 
-                     ? 'http://127.0.0.1:8000' : window.location.origin;
-    
-    let currentSessionId = null;
+    const API = (() => {
+      const o = window.location.origin;
+      return (o === 'null' || !o) ? 'http://127.0.0.1:8000' : o;
+    })();
 
-    // Load History
-    document.getElementById('load-btn').addEventListener('click', async () => {
-      const sid = document.getElementById('session-input').value.trim();
-      if (!sid) return;
-      currentSessionId = sid;
-      
-      const res = await fetch(`${API_BASE}/history?session_id=${encodeURIComponent(sid)}`);
-      const data = await res.json();
-      
-      const chatBox = document.getElementById('chat-history');
-      chatBox.innerHTML = '';
-      
-      // Update Meta
-      document.getElementById('meta-card').classList.remove('hidden');
-      document.getElementById('meta-intent').textContent = data.intent || 'Unknown';
-      document.getElementById('meta-escalated').textContent = data.is_escalated ? 'Yes' : 'No';
-      document.getElementById('meta-handovers').textContent = data.handover_count;
+    let currentSession = null;   // active session id
+    let pollTimer = null;         // interval for live refresh
 
-      // Render Messages
-      data.messages.forEach(msg => {
+    // ── DOM refs ───────────────────────────────────────────────────
+    const queueList     = document.getElementById('queue-list');
+    const queueEmpty    = document.getElementById('queue-empty');
+    const queueLoading  = document.getElementById('queue-loading');
+    const chatBox       = document.getElementById('chat-box');
+    const placeholder   = document.getElementById('chat-placeholder');
+    const expertInput   = document.getElementById('expert-input');
+    const sendBtn       = document.getElementById('send-btn');
+    const sessionMeta   = document.getElementById('session-meta');
+    const metaSid       = document.getElementById('meta-sid');
+    const metaIntent    = document.getElementById('meta-intent');
+    const metaCid       = document.getElementById('meta-cid');
+    const headerTitle   = document.getElementById('header-title');
+    const headerDot     = document.getElementById('header-dot');
+    const headerBadge   = document.getElementById('header-badge');
+
+    // ── Queue ──────────────────────────────────────────────────────
+    async function loadQueue() {
+      queueLoading.classList.remove('hidden');
+      queueEmpty.classList.add('hidden');
+
+      try {
+        const res = await fetch(`${API}/escalation/queue`);
+        if (!res.ok) throw new Error('Queue fetch failed');
+        const data = await res.json();
+        renderQueue(data.sessions || []);
+      } catch (e) {
+        queueLoading.textContent = 'Could not load queue.';
+      }
+    }
+
+    function renderQueue(sessions) {
+      // Remove existing items (but keep the static children)
+      queueList.querySelectorAll('.queue-item').forEach(el => el.remove());
+      queueLoading.classList.add('hidden');
+
+      if (sessions.length === 0) {
+        queueEmpty.classList.remove('hidden');
+        return;
+      }
+
+      sessions.forEach(sess => {
         const div = document.createElement('div');
-        const isUser = msg.role === 'user';
-        const isExpert = msg.role === 'human_expert';
-        
-        // Differentiate colors: User (Gray), AI Agents (Indigo), Human Expert (Green)
-        let bgClass = isUser ? 'bg-gray-800' : (isExpert ? 'bg-emerald-600' : 'bg-indigo-600');
-        let align = isUser ? 'text-right' : 'text-left';
+        div.className = 'queue-item border border-white/5 rounded-xl p-3 space-y-1';
+        div.dataset.sid = sess.session_id;
+        if (currentSession === sess.session_id) div.classList.add('active');
 
-        div.className = `max-w-[70%] p-3 rounded-xl text-sm ${bgClass} ${isUser ? 'ml-auto' : 'mr-auto'} mb-2`;
-        div.innerHTML = `<div class="text-xs text-white/60 mb-1 uppercase tracking-wider">${msg.role}</div><div>${msg.content}</div>`;
-        chatBox.appendChild(div);
+        const shortId = sess.session_id.slice(0, 8) + '…';
+        const intent  = sess.intent || 'unknown';
+        const preview = sess.last_user_message || '—';
+        const replied = sess.has_expert_reply;
+
+        div.innerHTML = `
+          <div class="flex items-center justify-between gap-2">
+            <span class="font-mono text-xs text-indigo-300">${shortId}</span>
+            ${replied
+              ? '<span class="text-xs px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400">Replied</span>'
+              : '<span class="text-xs px-1.5 py-0.5 rounded-full bg-orange-500/15 text-orange-400">Waiting</span>'}
+          </div>
+          <div class="text-xs text-gray-400"><span class="text-gray-500">Intent:</span> ${intent}</div>
+          <div class="text-xs text-gray-500 truncate">${preview}</div>
+        `;
+
+        div.addEventListener('click', () => openSession(sess.session_id, sess));
+        queueList.appendChild(div);
       });
-      chatBox.scrollTop = chatBox.scrollHeight;
-    });
+    }
 
-    // Send Expert Reply
-    document.getElementById('send-btn').addEventListener('click', async () => {
-      if (!currentSessionId) return alert('Load a session first.');
-      const input = document.getElementById('expert-input');
-      const text = input.value.trim();
+    // ── Open a session ─────────────────────────────────────────────
+    async function openSession(sid, meta) {
+      currentSession = sid;
+
+      // Highlight active item
+      queueList.querySelectorAll('.queue-item').forEach(el => {
+        el.classList.toggle('active', el.dataset.sid === sid);
+      });
+
+      // Update header
+      headerTitle.textContent = 'Session ' + sid.slice(0, 8) + '…';
+      headerDot.className = 'w-2 h-2 rounded-full bg-orange-400';
+      headerBadge.classList.remove('hidden');
+
+      // Update sidebar meta
+      sessionMeta.classList.remove('hidden');
+      metaSid.textContent = sid;
+      metaIntent.textContent = (meta && meta.intent) ? meta.intent : '—';
+      metaCid.textContent = (meta && meta.customer_id) ? meta.customer_id : '—';
+
+      // Enable reply bar
+      expertInput.disabled = false;
+      expertInput.placeholder = 'Type your reply to the customer…';
+      sendBtn.disabled = false;
+
+      // Load history
+      await refreshHistory();
+
+      // Start live polling
+      clearInterval(pollTimer);
+      pollTimer = setInterval(refreshHistory, 5000);
+    }
+
+    // ── Fetch + render conversation history ────────────────────────
+    async function refreshHistory() {
+      if (!currentSession) return;
+
+      try {
+        const res = await fetch(`${API}/history?session_id=${encodeURIComponent(currentSession)}`);
+        if (!res.ok) throw new Error('History fetch failed');
+        const data = await res.json();
+        renderHistory(data.messages || []);
+        // Update intent in meta if available
+        if (data.intent) metaIntent.textContent = data.intent;
+        if (data.customer_id) metaCid.textContent = data.customer_id;
+      } catch (e) {
+        // silently fail on poll
+      }
+    }
+
+    function renderHistory(messages) {
+      // Save scroll position at bottom indicator
+      const atBottom = chatBox.scrollHeight - chatBox.scrollTop - chatBox.clientHeight < 80;
+
+      chatBox.innerHTML = '';
+      placeholder.style.display = 'none';
+
+      if (messages.length === 0) {
+        chatBox.innerHTML = '<div class="text-center text-gray-600 text-sm mt-10">No messages yet.</div>';
+        return;
+      }
+
+      messages.forEach(msg => {
+        const { role, content } = msg;
+        if (!content) return;
+
+        const isUser   = role === 'user';
+        const isExpert = role === 'human_expert';
+
+        let bgClass   = 'msg-system';
+        let roleLabel = role;
+        let alignClass = 'justify-start';
+
+        if (isUser)        { bgClass = 'msg-user';   alignClass = 'justify-end';   roleLabel = 'Customer'; }
+        else if (isExpert) { bgClass = 'msg-expert';  roleLabel = '🧑 You (Expert)'; }
+        else               { bgClass = 'msg-agent';   roleLabel = role; }
+
+        const wrap = document.createElement('div');
+        wrap.className = `flex ${alignClass} animate-none`;
+
+        wrap.innerHTML = `
+          <div class="max-w-[72%] space-y-1">
+            <p class="text-xs text-gray-500 ${isUser ? 'text-right pr-1' : 'pl-1'}">${roleLabel}</p>
+            <div class="${bgClass} text-sm text-gray-100 px-4 py-3 rounded-2xl leading-relaxed
+                        ${isUser ? 'rounded-tr-sm' : 'rounded-tl-sm'}">
+              ${escapeHtml(content)}
+            </div>
+          </div>`;
+
+        chatBox.appendChild(wrap);
+      });
+
+      if (atBottom) chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    // ── Send reply ─────────────────────────────────────────────────
+    async function sendReply() {
+      if (!currentSession) return;
+      const text = expertInput.value.trim();
       if (!text) return;
-      
-      document.getElementById('send-btn').disabled = true;
-      
-      await fetch(`${API_BASE}/expert/chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ session_id: currentSessionId, message: text })
-      });
-      
-      input.value = '';
-      document.getElementById('send-btn').disabled = false;
-      
-      // Refresh view to see our new message
-      document.getElementById('load-btn').click();
+
+      sendBtn.disabled = true;
+      expertInput.disabled = true;
+
+      try {
+        const res = await fetch(`${API}/expert/chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ session_id: currentSession, message: text })
+        });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          alert('Send failed: ' + (err.detail || res.status));
+          return;
+        }
+
+        expertInput.value = '';
+        await refreshHistory();
+        await loadQueue();   // refresh queue to update "Replied" badge
+      } finally {
+        sendBtn.disabled = false;
+        expertInput.disabled = false;
+        expertInput.focus();
+      }
+    }
+
+    // ── Helpers ────────────────────────────────────────────────────
+    function escapeHtml(str) {
+      return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/\n/g, '<br>');
+    }
+
+    // ── Event listeners ────────────────────────────────────────────
+    sendBtn.addEventListener('click', sendReply);
+    expertInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) sendReply();
     });
+    document.getElementById('refresh-btn').addEventListener('click', loadQueue);
+
+    // ── Init ───────────────────────────────────────────────────────
+    loadQueue();
   </script>
 </body>
 </html>

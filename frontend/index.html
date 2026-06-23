@@ -229,6 +229,8 @@
     let sessionId = localStorage.getItem('clouddash_session_id') || crypto.randomUUID();
     let isLoading = false;
     let isEscalated = false;  // true once session is locked to human operator
+    let humanPollTimer = null;    // interval ID for polling expert replies
+    let lastExpertMsgCount = 0;   // track how many expert messages we've rendered
     let turnCount  = 0;
 
     // Persist session ID so page refresh continues the same conversation
@@ -307,25 +309,71 @@
     }
 
     function enterHumanMode() {
-      if (isEscalated) return; // already locked
+      if (isEscalated) return; // already set up
       isEscalated = true;
-      // Lock the input area
-      msgInput.disabled = true;
-      msgInput.placeholder = 'Chat locked — awaiting human support agent…';
-      sendBtn.disabled = true;
-      // Update status indicator
+      // Keep input OPEN so customer can keep messaging the human
+      msgInput.disabled = false;
+      msgInput.placeholder = 'Message the human support agent…';
+      sendBtn.disabled = false;
       setStatus('Human Support', 'amber');
-      // Show a persistent banner above the input
-      const banner = document.createElement('div');
-      banner.id = 'human-mode-banner';
-      banner.className = 'flex items-center gap-2 px-4 py-3 bg-orange-500/10 border-t border-orange-500/20 text-orange-300 text-sm';
-      banner.innerHTML = `
-        <svg class="w-4 h-4 flex-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
-        </svg>
-        <span><strong>Transferred to Human Support.</strong> A support agent will reach out via your registered email. This chat is now read-only.</span>`;
-      const form = document.getElementById('chat-form');
-      form.parentNode.insertBefore(banner, form);
+      // Show a banner (non-blocking — just informational)
+      if (!document.getElementById('human-mode-banner')) {
+        const banner = document.createElement('div');
+        banner.id = 'human-mode-banner';
+        banner.className = 'flex items-center gap-2 px-4 py-2.5 bg-orange-500/10 border-t border-orange-500/20 text-orange-300 text-xs';
+        banner.innerHTML = `
+          <svg class="w-3.5 h-3.5 flex-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+          </svg>
+          <span><strong>Connected to a human agent.</strong> You can keep sending messages — no AI will respond.</span>`;
+        const form = document.getElementById('chat-form');
+        form.parentNode.insertBefore(banner, form);
+      }
+      // Poll /history every 4 seconds to surface expert replies
+      if (!humanPollTimer) {
+        humanPollTimer = setInterval(pollForExpertReplies, 4000);
+      }
+    }
+
+    async function pollForExpertReplies() {
+      if (!sessionId) return;
+      try {
+        const res = await fetch(`${API_BASE}/history?session_id=${encodeURIComponent(sessionId)}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const expertMsgs = (data.messages || []).filter(m => m.role === 'human_expert');
+        if (expertMsgs.length > lastExpertMsgCount) {
+          // Render only the new ones
+          for (let i = lastExpertMsgCount; i < expertMsgs.length; i++) {
+            appendExpertMessage(expertMsgs[i].content);
+          }
+          lastExpertMsgCount = expertMsgs.length;
+        }
+      } catch (_) {}
+    }
+
+    function appendExpertMessage(content) {
+      document.getElementById('typing-indicator')?.remove();
+      const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const wrapper = document.createElement('div');
+      wrapper.className = 'flex items-start gap-3 animate-fadeUp';
+      wrapper.innerHTML = `
+        <div class="w-8 h-8 rounded-full bg-emerald-600/20 border border-emerald-600/30 flex items-center justify-center flex-none mt-0.5">
+          <svg class="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+          </svg>
+        </div>
+        <div class="flex-1 max-w-[80%] lg:max-w-[65%] min-w-0">
+          <div class="flex items-center gap-2 mb-1.5">
+            <span class="px-2 py-0.5 rounded-md text-xs font-semibold tracking-wide bg-emerald-500/15 text-emerald-400">Human Agent</span>
+            <span class="text-xs text-gray-600">${time}</span>
+          </div>
+          <div class="bg-gray-800/70 border border-white/5 text-sm text-gray-200 px-4 py-3.5 rounded-2xl rounded-tl-sm leading-relaxed shadow-sm">
+            ${renderMarkdown(content)}
+          </div>
+        </div>`;
+      chatWindow.appendChild(wrapper);
+      scrollToBottom();
     }
 
     function setStatus(text, colour = 'emerald') {
@@ -456,7 +504,7 @@
     // Core: send message to API
     // -----------------------------------------------------------------------
     async function sendMessage(text) {
-      if (!text.trim() || isLoading || isEscalated) return;
+      if (!text.trim() || isLoading) return;
 
       appendUserMessage(text);
       const typingEl = appendTypingIndicator();
@@ -487,8 +535,11 @@
           document.getElementById('session-label').textContent = sessionId;
         }
 
-        appendAssistantMessage(data);
-        setStatus('Online', 'emerald');
+        // When escalated, server returns empty response — don't render a blank AI bubble
+        if (data.response && data.response.trim()) {
+          appendAssistantMessage(data);
+        }
+        setStatus(isEscalated ? 'Human Support' : 'Online', isEscalated ? 'amber' : 'emerald');
 
       } catch (err) {
         typingEl?.remove();
@@ -572,6 +623,8 @@
 
       // Reset human-mode state
       isEscalated = false;
+      lastExpertMsgCount = 0;
+      if (humanPollTimer) { clearInterval(humanPollTimer); humanPollTimer = null; }
       msgInput.disabled = false;
       msgInput.placeholder = 'Message CloudDash Support…';
       sendBtn.disabled = false;

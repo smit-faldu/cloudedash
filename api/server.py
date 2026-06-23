@@ -214,6 +214,28 @@ async def serve_frontend() -> FileResponse:
 
 
 # ---------------------------------------------------------------------------
+# GET /escalation
+# ---------------------------------------------------------------------------
+
+
+@app.get(
+    "/escalation",
+    response_class=FileResponse,
+    tags=["Frontend"],
+    summary="Serve the escalation desk frontend",
+)
+async def serve_escalation() -> FileResponse:
+    """Serves the human escalation desk (escalation.html)."""
+    escalation_path = _PROJECT_ROOT / "frontend" / "escalation.html"
+    if not escalation_path.exists():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="escalation.html not found.",
+        )
+    return FileResponse(escalation_path)
+
+
+# ---------------------------------------------------------------------------
 # GET /health
 # ---------------------------------------------------------------------------
 
@@ -306,22 +328,26 @@ async def chat(
         already_escalated = False
 
     if already_escalated:
-        # Session is locked to human operator — do NOT re-enter the agent graph.
-        # Any further messages go directly to the human queue; bots don't intercept.
+        # Session is locked to a human operator — do NOT re-enter the agent graph.
+        # Save the customer's new message into the graph state so the expert can
+        # see it on the escalation desk, then return without any AI reply.
         logger.info(
-            "Session %s is already escalated — bypassing agent graph for human-mode reply.",
+            "Session %s is escalated — saving customer message for human expert.",
             session_id,
         )
+        try:
+            graph.update_state(
+                config,
+                {"messages": [HumanMessage(content=body.message)]},
+                as_node="escalation_agent",
+            )
+        except Exception as exc:
+            logger.warning("Could not save escalated customer message: %s", exc)
+
         return ChatResponse(
             session_id=session_id,
             trace_id=trace_id,
-            response=(
-                "Your conversation has been handed off to our human support team and "
-                "they are reviewing your case. Please wait for their response — "
-                "no agents will intervene in this thread. If this is urgent, "
-                "email us directly at support@clouddash.io with your reference ID: "
-                f"**{prev_values.get('trace_id', trace_id)}**."
-            ),
+            response="",           # empty — client polls /history for expert replies
             agent="human_handoff",
             intent=prev_values.get("intent"),
             confidence=prev_values.get("confidence"),
@@ -488,6 +514,129 @@ async def history(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Could not retrieve session history.",
         )
+
+
+# ---------------------------------------------------------------------------
+# GET /escalation/queue  — list sessions waiting for a human agent
+# ---------------------------------------------------------------------------
+
+
+@app.get(
+    "/escalation/queue",
+    tags=["Escalation"],
+    summary="List sessions waiting for human review",
+)
+async def escalation_queue(
+    graph=Depends(get_compiled_graph),
+) -> JSONResponse:
+    """
+    Returns a list of session IDs whose ``is_escalated`` flag is True
+    and that have no human_expert reply yet (i.e. still awaiting a human).
+    The escalation desk uses this to auto-populate its queue.
+    """
+    try:
+        # SqliteSaver exposes .list_threads() or we can query its underlying store.
+        # Use the checkpointer's list method to iterate all known threads.
+        checkpointer = graph.checkpointer
+        pending = []
+
+        # Iterate all stored checkpoints
+        for config_item in checkpointer.list(config=None, limit=500):
+            thread_id = config_item.config["configurable"]["thread_id"]
+            try:
+                snap = graph.get_state({"configurable": {"thread_id": thread_id}})
+                if snap is None or not snap.values:
+                    continue
+                state = snap.values
+                if not state.get("is_escalated", False):
+                    continue
+                # Check if human_expert has already replied
+                messages = state.get("messages", [])
+                has_expert_reply = any(
+                    getattr(m, "name", None) == "human_expert"
+                    or (hasattr(m, "role") and getattr(m, "role", None) == "human_expert")
+                    for m in messages
+                )
+                # Also check HumanMessage content for expert tag via metadata
+                has_expert_reply = has_expert_reply or any(
+                    isinstance(m, AIMessage) and getattr(m, "name", "") == "human_expert"
+                    for m in messages
+                )
+                pending.append({
+                    "session_id": thread_id,
+                    "intent": state.get("intent"),
+                    "handover_count": state.get("handover_count", 0),
+                    "has_expert_reply": has_expert_reply,
+                    "customer_id": state.get("customer_id"),
+                    # Preview: last user message
+                    "last_user_message": next(
+                        (
+                            getattr(m, "content", "")[:120]
+                            for m in reversed(messages)
+                            if isinstance(m, HumanMessage)
+                        ),
+                        "",
+                    ),
+                })
+            except Exception:
+                continue
+
+        return JSONResponse(content={"sessions": pending})
+    except Exception as exc:
+        logger.error("Escalation queue fetch failed: %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail="Could not fetch escalation queue.")
+
+
+# ---------------------------------------------------------------------------
+# POST /expert/chat  — human agent sends a reply into an escalated session
+# ---------------------------------------------------------------------------
+
+
+@app.post(
+    "/expert/chat",
+    tags=["Escalation"],
+    summary="Human expert sends a reply into an escalated session",
+    status_code=status.HTTP_200_OK,
+)
+async def expert_chat(
+    body: ChatRequest,
+    graph=Depends(get_compiled_graph),
+) -> JSONResponse:
+    """
+    Injects a ``human_expert`` AIMessage into the conversation state for the
+    given session.  The customer-facing ``/chat`` endpoint already blocks
+    further agent processing once ``is_escalated`` is True, so this message
+    is purely appended to the history — the graph is not re-invoked.
+    """
+    session_id = body.session_id
+    if not session_id:
+        raise HTTPException(status_code=400, detail="session_id is required.")
+
+    config = {"configurable": {"thread_id": session_id}}
+
+    try:
+        snap = graph.get_state(config)
+        if snap is None or not snap.values:
+            raise HTTPException(status_code=404, detail="Session not found.")
+        if not snap.values.get("is_escalated", False):
+            raise HTTPException(
+                status_code=400,
+                detail="Session is not escalated; cannot inject expert reply.",
+            )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+    # Append the human expert's message as an AIMessage with name="human_expert"
+    expert_msg = AIMessage(content=body.message, name="human_expert")
+    try:
+        graph.update_state(config, {"messages": [expert_msg]}, as_node="escalation_agent")
+    except Exception as exc:
+        logger.error("Expert chat update failed: %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail="Could not save expert reply.")
+
+    return JSONResponse(content={"ok": True, "session_id": session_id})
 
 
 # ===========================================================================
