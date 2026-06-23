@@ -66,9 +66,11 @@ DEFAULT_INDEX_DIR = _PROJECT_ROOT / "knowledge_base" / "faiss_index"
 EMBEDDING_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 
 # Retrieval tuning knobs
-TOP_K_CANDIDATES = 8    # retrieve this many before dedup + score filtering
+TOP_K_CANDIDATES = 10   # retrieve this many before dedup + score filtering
 TOP_K_FINAL = 4         # return at most this many chunks to the agent
-MIN_SCORE = 0.30        # cosine similarity floor (L2-normalised inner product)
+MIN_SCORE = 0.22        # cosine similarity floor (L2-normalised inner product)
+                        # Lowered from 0.30 to ensure symptom/error-code queries
+                        # match KB articles that use different but related terminology
 
 
 # ===========================================================================
@@ -134,7 +136,7 @@ def _get_embeddings():
     """Return the cached embedding model, loading it on first call."""
     global _embeddings
     if _embeddings is None:
-        from langchain_community.embeddings import HuggingFaceEmbeddings
+        from langchain_huggingface import HuggingFaceEmbeddings
 
         logger.info("Loading embedding model: %s", EMBEDDING_MODEL_NAME)
         _embeddings = HuggingFaceEmbeddings(
@@ -177,9 +179,14 @@ _REWRITE_PROMPT = """You are a search query optimizer for a cloud infrastructure
 Given the conversation history and the user's latest message, rewrite the user's question into a
 concise, standalone search query that:
 1. Incorporates relevant context from the history (e.g. error codes, product areas mentioned earlier).
-2. Uses specific technical terminology that will match documentation (e.g. "ERR-4012", "IAM role", "FAISS index").
+2. Uses specific technical terminology that will match documentation. Key mappings:
+   - "index out of memory" / "memory error" / "out of memory" → "ERR-3007 FAISS index out of memory agent memory buffer"
+   - "RAG not working" / "RAG broken" → "knowledge base retrieval FAISS index error"
+   - "agent crash" / "agent down" → "CloudDash Agent crash error self-hosted"
+   - "disconnected" / "keeps disconnecting" → include the cloud provider + "ERR-4012" if AWS
 3. Removes conversational filler ("can you help me", "I'm having trouble with", etc.).
-4. Is a single sentence of no more than 20 words.
+4. Is a single sentence of no more than 25 words.
+5. ALWAYS include any error codes mentioned (ERR-XXXX format) verbatim.
 
 Output ONLY the rewritten query string. Do not add quotes, explanations, or labels.
 

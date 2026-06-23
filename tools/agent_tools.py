@@ -479,11 +479,33 @@ def search_technical_knowledge_base(query: str) -> str:
                 "Ensure retrieval/retriever.py is importable and the index exists."
             )
 
+        # Import the module-level MIN_SCORE so it stays in sync with retriever tuning
+        try:
+            from retrieval.retriever import MIN_SCORE as _min_score
+        except ImportError:
+            _min_score = 0.22
+
+        # Expand common symptom phrases to KB terminology before searching
+        _SYMPTOM_MAP = {
+            "index out of memory": "ERR-3007 FAISS index out of memory agent memory buffer",
+            "out of memory": "ERR-3007 agent memory buffer insufficient",
+            "rag not working": "knowledge base retrieval FAISS index error",
+            "rag is not working": "knowledge base retrieval FAISS index error",
+            "memory error": "ERR-3007 agent memory buffer",
+            "agent crash": "CloudDash agent crash self-hosted error",
+        }
+        expanded_query = query
+        lower_q = query.lower()
+        for phrase, expansion in _SYMPTOM_MAP.items():
+            if phrase in lower_q:
+                expanded_query = expansion + " " + query
+                break
+
         results = retrieve_with_context(
-            query=query,
+            query=expanded_query,
             conversation_history=[],
             top_k=4,
-            min_score=0.28,
+            min_score=_min_score,
             llm=None,
         )
 

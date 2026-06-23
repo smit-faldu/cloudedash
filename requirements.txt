@@ -12,6 +12,7 @@ langgraph
 # --- LLM & Embeddings ---
 google-generativeai
 sentence-transformers
+langchain-huggingface
 
 # --- Vector Store ---
 faiss-cpu

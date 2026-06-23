@@ -414,9 +414,25 @@ def run_technical_support_agent(state: AgentState) -> AgentResponse:
     handover_reason: str | None = None
 
     lower_content = response_content.lower()
-    
-    # Check for explicit handover instructions from the LLM
-    if "needs_handover = true" in lower_content or "needs_handover: true" in lower_content:
+
+    # Primary signal: structured ESCALATE / HANDOVER_TO markers (new protocol)
+    if re.search(r"^escalate\s*:", response_content, re.IGNORECASE | re.MULTILINE):
+        needs_handover = True
+        target_agent = AgentName.ESCALATION
+        handover_reason = "Technical Agent could not resolve the issue."
+        # Strip the signal line from the visible response
+        response_content = re.sub(
+            r"\n?ESCALATE\s*:.*$", "", response_content, flags=re.IGNORECASE | re.MULTILINE
+        ).strip()
+    elif re.search(r"^handover_to\s*:\s*billing", response_content, re.IGNORECASE | re.MULTILINE):
+        needs_handover = True
+        target_agent = AgentName.BILLING
+        handover_reason = "Billing-related question detected; routing to Billing Agent."
+        response_content = re.sub(
+            r"\n?HANDOVER_TO\s*:.*$", "", response_content, flags=re.IGNORECASE | re.MULTILINE
+        ).strip()
+    # Legacy fallback: older-style signals still handled gracefully
+    elif "needs_handover = true" in lower_content or "needs_handover: true" in lower_content:
         needs_handover = True
         if "billing" in lower_content:
             target_agent = AgentName.BILLING
@@ -532,8 +548,23 @@ def run_billing_agent(state: AgentState) -> AgentResponse:
 
     lower = response_content.lower()
 
-    # Check for explicit handover instructions from the LLM
-    if "needs_handover = true" in lower or "needs_handover: true" in lower:
+    # Primary signal: structured ESCALATE / HANDOVER_TO markers
+    if re.search(r"^escalate\s*:", response_content, re.IGNORECASE | re.MULTILINE):
+        needs_handover = True
+        target_agent = AgentName.ESCALATION
+        handover_reason = "Escalation requested by Billing Agent."
+        response_content = re.sub(
+            r"\n?ESCALATE\s*:.*$", "", response_content, flags=re.IGNORECASE | re.MULTILINE
+        ).strip()
+    elif re.search(r"^handover_to\s*:\s*technical", response_content, re.IGNORECASE | re.MULTILINE):
+        needs_handover = True
+        target_agent = AgentName.TECHNICAL_SUPPORT
+        handover_reason = "Technical question detected; routing to Technical Support."
+        response_content = re.sub(
+            r"\n?HANDOVER_TO\s*:.*$", "", response_content, flags=re.IGNORECASE | re.MULTILINE
+        ).strip()
+    # Legacy fallback
+    elif "needs_handover = true" in lower or "needs_handover: true" in lower:
         needs_handover = True
         if "technical" in lower:
             target_agent = AgentName.TECHNICAL_SUPPORT
