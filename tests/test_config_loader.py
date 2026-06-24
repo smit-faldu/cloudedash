@@ -22,7 +22,7 @@ MINIMAL_VALID_CONFIG = textwrap.dedent("""
     global:
       max_history_turns: 20
       default_temperature: 0.2
-      llm_model: "gemini-3.5-flash"
+      llm_model: "gemini-3.1-flash-lite"
       llm_timeout_seconds: 30
       llm_max_retries: 3
 
@@ -76,7 +76,7 @@ class TestLoadConfig:
     def test_global_settings(self, valid_config_file: Path):
         cfg = load_config(valid_config_file)
         assert cfg.global_settings.max_history_turns == 20
-        assert cfg.global_settings.llm_model == "gemini-3.5-flash"
+        assert cfg.global_settings.llm_model == "gemini-3.1-flash-lite"
 
     def test_routing_loaded(self, valid_config_file: Path):
         cfg = load_config(valid_config_file)

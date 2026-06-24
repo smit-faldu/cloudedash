@@ -303,7 +303,7 @@ def run_triage_agent(state: AgentState) -> TriageResult:
     system_prompt = cfg.get_agent_prompt("triage_agent")
 
     # Build standard LLM, then bind the Pydantic model for structured output
-    llm = _build_llm("triage_agent", model_override="gemini-3.5-flash")
+    llm = _build_llm("triage_agent", model_override="gemini-3.1-flash-lite")
     structured_llm = llm.with_structured_output(TriageResult)
 
     prompt_messages = [

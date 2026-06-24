@@ -15,7 +15,7 @@ global:
   # Temperature for all agents unless overridden at the agent level
   default_temperature: 0.2
   # Gemini model to use
-  llm_model: "gemini-3.5-flash"
+  llm_model: "gemini-3.1-flash-lite"
   # Timeout (seconds) per LLM call before a retry is attempted
   llm_timeout_seconds: 30
   # Maximum retries on transient LLM errors

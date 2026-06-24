@@ -44,7 +44,7 @@ class GlobalSettings(BaseModel):
 
     max_history_turns: int = Field(20, ge=1, le=200)
     default_temperature: float = Field(0.2, ge=0.0, le=2.0)
-    llm_model: str = "gemini-3.5-flash"
+    llm_model: str = "gemini-3.1-flash-lite"
     llm_timeout_seconds: int = Field(30, ge=5, le=300)
     llm_max_retries: int = Field(3, ge=0, le=10)
 

@@ -245,7 +245,7 @@ def rewrite_query(
                 os.environ.get("GEMINI_MODEL_REWRITE") or
                 os.environ.get("GEMINI_MODEL_DEFAULT") or
                 os.environ.get("GEMINI_MODEL") or
-                "gemini-3.5-flash"
+                "gemini-3.1-flash-lite"
             )
 
             llm = ChatGoogleGenerativeAI(
